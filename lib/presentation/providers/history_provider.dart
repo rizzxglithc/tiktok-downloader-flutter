@@ -40,7 +40,7 @@ class HistoryProvider extends ChangeNotifier {
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         final matchTitle = item.title.toLowerCase().contains(query);
-        final matchAuthor = item.authorName.toLowerCase().contains(query);
+        final matchAuthor = item.author.toLowerCase().contains(query);
         return matchTitle || matchAuthor;
       }
       return true;
@@ -81,12 +81,10 @@ class HistoryProvider extends ChangeNotifier {
       _items.removeAt(itemIndex);
       notifyListeners();
 
-      // Delete physical file if exists
-      if (item.savedPath.isNotEmpty) {
-        await MediaStorageService.deleteFile(item.savedPath);
+      if (item.filePath.isNotEmpty) {
+        await MediaStorageService.deleteFile(item.filePath);
       }
 
-      // Delete from SharedPreferences
       await _deleteHistoryUseCase.execute(id);
     }
   }

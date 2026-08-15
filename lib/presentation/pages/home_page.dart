@@ -269,12 +269,12 @@ class _HomePageState extends State<HomePage> {
                       final item = historyProvider.allItems[index];
                       return GestureDetector(
                         onTap: () {
-                          if (item.isVideo && item.savedPath.isNotEmpty) {
+                          if (item.isVideo && item.filePath.isNotEmpty) {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => VideoViewerPage(
-                                  videoUrl: item.savedPath,
+                                  videoUrl: item.filePath,
                                   title: item.title,
                                 ),
                               ),

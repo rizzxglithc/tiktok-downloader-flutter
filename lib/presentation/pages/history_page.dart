@@ -34,34 +34,34 @@ class _HistoryPageState extends State<HistoryPage> {
     super.dispose();
   }
 
-  void _handleOpenMedia(BuildContext context, String savedPath, String title, bool isVideo) {
-    if (savedPath.isEmpty) {
+  void _handleOpenMedia(BuildContext context, String filePath, String title, bool isVideo) {
+    if (filePath.isEmpty) {
       CustomToast.showError(context, 'Path file tidak valid.');
       return;
     }
 
-    if (isVideo && File(savedPath).existsSync()) {
+    if (isVideo && File(filePath).existsSync()) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => VideoViewerPage(
-            videoUrl: savedPath,
+            videoUrl: filePath,
             title: title,
           ),
         ),
       );
     } else {
-      OpenFilex.open(savedPath).then((result) {
+      OpenFilex.open(filePath).then((result) {
         if (result.type != ResultType.done && mounted) {
-          CustomToast.showInfo(context, 'Membuka file: $savedPath');
+          CustomToast.showInfo(context, 'Membuka file: $filePath');
         }
       });
     }
   }
 
-  void _handleShare(String savedPath, String title) {
-    if (savedPath.isNotEmpty && File(savedPath).existsSync()) {
-      Share.shareXFiles([XFile(savedPath)], text: 'Dibagikan via TikTok Downloader Pro: $title');
+  void _handleShare(String filePath, String title) {
+    if (filePath.isNotEmpty && File(filePath).existsSync()) {
+      Share.shareXFiles([XFile(filePath)], text: 'Dibagikan via TikTok Downloader Pro: $title');
     }
   }
 
@@ -225,7 +225,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       return GlassCard(
                         padding: const EdgeInsets.all(12),
                         borderRadius: 16,
-                        onTap: () => _handleOpenMedia(context, item.savedPath, item.title, item.isVideo),
+                        onTap: () => _handleOpenMedia(context, item.filePath, item.title, item.isVideo),
                         child: Row(
                           children: [
                             // Thumbnail / Icon
@@ -269,12 +269,12 @@ class _HistoryPageState extends State<HistoryPage> {
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
-                                    '${item.authorName} • ${Formatters.formatBytes(item.fileSizeBytes)}',
+                                    '${item.author} • ${Formatters.formatBytes(item.totalBytes)}',
                                     style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    Formatters.formatDate(item.downloadedAt),
+                                    Formatters.formatDate(item.createdAt),
                                     style: const TextStyle(color: AppColors.textDisabled, fontSize: 11),
                                   ),
                                 ],
@@ -284,7 +284,7 @@ class _HistoryPageState extends State<HistoryPage> {
                             // Actions (Share & Delete)
                             IconButton(
                               icon: const Icon(Icons.share_rounded, color: AppColors.textSecondary, size: 18),
-                              onPressed: () => _handleShare(item.savedPath, item.title),
+                              onPressed: () => _handleShare(item.filePath, item.title),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline_rounded, color: AppColors.textMuted, size: 18),

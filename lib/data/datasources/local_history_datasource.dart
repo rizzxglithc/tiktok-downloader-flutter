@@ -12,7 +12,7 @@ abstract class LocalHistoryDataSource {
 }
 
 class LocalHistoryDataSourceImpl implements LocalHistoryDataSource {
-  static const String _historyKey = 'tiktok_download_history_v2';
+  static const String _historyKey = 'tiktok_download_history_v3';
   final SharedPreferences sharedPreferences;
 
   LocalHistoryDataSourceImpl({required this.sharedPreferences});
@@ -33,8 +33,7 @@ class LocalHistoryDataSourceImpl implements LocalHistoryDataSource {
         } catch (_) {}
       }
 
-      // Sort newest first
-      items.sort((a, b) => b.downloadedAt.compareTo(a.downloadedAt));
+      items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return items;
     } catch (e) {
       throw StorageException('Gagal memuat riwayat: ${e.toString()}');
@@ -45,24 +44,9 @@ class LocalHistoryDataSourceImpl implements LocalHistoryDataSource {
   Future<void> saveHistoryItem(DownloadItem item) async {
     try {
       final currentList = await getHistory();
-      
-      // Remove duplicate if already exists
       currentList.removeWhere((element) => element.id == item.id);
       
-      // Add new item at top
-      currentList.insert(
-        0,
-        DownloadItemModel(
-          id: item.id,
-          title: item.title,
-          authorName: item.authorName,
-          thumbnailUrl: item.thumbnailUrl,
-          savedPath: item.savedPath,
-          downloadedAt: item.downloadedAt,
-          fileSizeBytes: item.fileSizeBytes,
-          isVideo: item.isVideo,
-        ),
-      );
+      currentList.insert(0, DownloadItemModel.fromEntity(item));
 
       final stringList = currentList.map((e) => jsonEncode(e.toJson())).toList();
       await sharedPreferences.setStringList(_historyKey, stringList);

@@ -18,7 +18,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SettingsProvider>().calculateStorageUsage();
+      context.read<SettingsProvider>().calculateStorageUsed();
     });
   }
 
@@ -118,7 +118,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
                       ),
                       Text(
-                        Formatters.formatBytes(settings.totalDownloadSizeBytes),
+                        Formatters.formatBytes(settings.storageUsedBytes),
                         style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                     ],
@@ -134,12 +134,12 @@ class _SettingsPageState extends State<SettingsPage> {
                       }
                     },
                     borderRadius: BorderRadius.circular(10),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Row(
+                          Row(
                             children: [
                               Icon(Icons.cleaning_services_rounded, color: AppColors.textSecondary, size: 18),
                               SizedBox(width: 10),
@@ -149,10 +149,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               ),
                             ],
                           ),
-                          Text(
-                            Formatters.formatBytes(settings.cacheSizeBytes),
-                            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                          ),
+                          Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 18),
                         ],
                       ),
                     ),
@@ -197,17 +194,17 @@ class _SettingsPageState extends State<SettingsPage> {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
-                      'Deteksi Tautan Papan Klip',
+                      'Kualitas Full HD sebagai Utama',
                       style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                     subtitle: const Text(
-                      'Otomatis tempel tautan TikTok saat membuka aplikasi',
+                      'Prioritaskan stream video resolusi tertinggi saat tersedia',
                       style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                     ),
-                    value: settings.autoDetectClipboard,
+                    value: settings.hdByDefault,
                     activeColor: Colors.white,
                     activeTrackColor: Colors.white30,
-                    onChanged: (value) => settings.setAutoDetectClipboard(value),
+                    onChanged: (value) => settings.setHdByDefault(value),
                   ),
                 ],
               ),

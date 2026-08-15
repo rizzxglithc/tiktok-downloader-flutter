@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/download_item.dart';
 import '../../domain/entities/tiktok_video.dart';
 import '../../domain/usecases/save_history_usecase.dart';
-import '../../services/download_engine.dart';
+import '../../services/download_engine.dart' as engine;
 import '../../services/media_storage_service.dart';
 
 class ActiveDownload {
@@ -13,7 +13,7 @@ class ActiveDownload {
   final String authorName;
   final String thumbnailUrl;
   final bool isVideo;
-  final DownloadTask task;
+  final engine.DownloadTask task;
 
   ActiveDownload({
     required this.id,
@@ -26,14 +26,14 @@ class ActiveDownload {
 }
 
 class DownloadProvider extends ChangeNotifier {
-  final DownloadEngine _downloadEngine;
+  final engine.DownloadEngine _downloadEngine;
   final SaveHistoryUseCase _saveHistoryUseCase;
 
   final Map<String, ActiveDownload> _activeDownloads = {};
   VoidCallback? onDownloadCompleted;
 
   DownloadProvider({
-    required DownloadEngine downloadEngine,
+    required engine.DownloadEngine downloadEngine,
     required SaveHistoryUseCase saveHistoryUseCase,
   })  : _downloadEngine = downloadEngine,
         _saveHistoryUseCase = saveHistoryUseCase;
@@ -52,7 +52,7 @@ class DownloadProvider extends ChangeNotifier {
     // 1. Request Media Permissions
     final hasPermission = await MediaStorageService.requestStoragePermission();
     if (!hasPermission && !kIsWeb) {
-      // Proceed with scoped storage
+      // Proceed with Scoped Storage
     }
 
     final downloadUrl = isVideo
@@ -103,7 +103,7 @@ class DownloadProvider extends ChangeNotifier {
     task.addListener(() async {
       notifyListeners();
 
-      if (task.status == DownloadStatus.completed) {
+      if (task.status == engine.DownloadStatus.completed) {
         // Save to Android MediaStore / Gallery
         String finalSavedPath = downloadPath;
         try {
@@ -121,12 +121,17 @@ class DownloadProvider extends ChangeNotifier {
         final historyItem = DownloadItem(
           id: downloadId,
           title: video.title.isNotEmpty ? video.title : 'TikTok ${isVideo ? "Video" : "Audio"}',
-          authorName: video.authorName.isNotEmpty ? video.authorName : '@${video.authorUsername}',
+          author: video.authorName.isNotEmpty ? video.authorName : '@${video.authorUsername}',
           thumbnailUrl: video.coverUrl,
-          savedPath: finalSavedPath,
-          downloadedAt: DateTime.now(),
-          fileSizeBytes: task.totalBytes > 0 ? task.totalBytes : video.fileSize,
-          isVideo: isVideo,
+          sourceUrl: video.url,
+          downloadUrl: downloadUrl,
+          filePath: finalSavedPath,
+          type: isVideo ? DownloadType.video : DownloadType.audio,
+          totalBytes: task.totalBytes > 0 ? task.totalBytes : video.fileSize,
+          downloadedBytes: task.downloadedBytes,
+          progress: 1.0,
+          status: DownloadStatus.completed,
+          createdAt: DateTime.now(),
         );
 
         await _saveHistoryUseCase.execute(historyItem);
@@ -134,7 +139,7 @@ class DownloadProvider extends ChangeNotifier {
         _activeDownloads.remove(downloadId);
         notifyListeners();
         onDownloadCompleted?.call();
-      } else if (task.status == DownloadStatus.failed || task.status == DownloadStatus.cancelled) {
+      } else if (task.status == engine.DownloadStatus.failed || task.status == engine.DownloadStatus.cancelled) {
         _activeDownloads.remove(downloadId);
         notifyListeners();
       }
