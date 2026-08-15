@@ -272,8 +272,8 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
       );
 
       final html = htmlResp.data.toString();
-      final titleMatch = RegExp(r'<meta\s+property=["\']og:title["\']\s+content=["\'](.*?)["\']', caseSensitive: false).firstMatch(html);
-      final imgMatch = RegExp(r'<meta\s+property=["\']og:image["\']\s+content=["\'](.*?)["\']', caseSensitive: false).firstMatch(html);
+      final titleMatch = RegExp(r'<meta\s+property=[\"\x27]og:title[\"\x27]\s+content=[\"\x27](.*?)[\"\x27]', caseSensitive: false).firstMatch(html);
+      final imgMatch = RegExp(r'<meta\s+property=[\"\x27]og:image[\"\x27]\s+content=[\"\x27](.*?)[\"\x27]', caseSensitive: false).firstMatch(html);
 
       final title = titleMatch?.group(1)?.replaceAll('&amp;', '&').replaceAll('&quot;', '"') ?? 'Instagram Post';
       final cover = imgMatch?.group(1)?.replaceAll('&amp;', '&') ?? '';
@@ -299,7 +299,6 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   // 3. Facebook Handler (fbdown)
   // ==========================================
   Future<TikTokVideoModel> _fetchFacebookDetails(String url) async {
-    // Strategy A: Direct HTML Stream Parser
     try {
       final resp = await apiClient.dio.get(
         url,
@@ -337,7 +336,6 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
       }
     } catch (_) {}
 
-    // Strategy B: btch fbdown
     try {
       final res = await apiClient.dio.get('$_btchBaseUrl/fbdown?url=${Uri.encodeComponent(url)}');
       if (res.data is Map && (res.data['HD'] != null || res.data['Normal_video'] != null)) {
@@ -659,9 +657,9 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
         ),
       );
       final html = resp.data.toString();
-      final ogTitle = RegExp(r'<meta\s+property=["\']og:title["\']\s+content=["\'](.*?)["\']').firstMatch(html)?.group(1);
-      final ogImage = RegExp(r'<meta\s+property=["\']og:image["\']\s+content=["\'](.*?)["\']').firstMatch(html)?.group(1);
-      final ogVideo = RegExp(r'<meta\s+property=["\']og:video["\']\s+content=["\'](.*?)["\']').firstMatch(html)?.group(1);
+      final ogTitle = RegExp(r'<meta\s+property=[\"\x27]og:title[\"\x27]\s+content=[\"\x27](.*?)[\"\x27]').firstMatch(html)?.group(1);
+      final ogImage = RegExp(r'<meta\s+property=[\"\x27]og:image[\"\x27]\s+content=[\"\x27](.*?)[\"\x27]').firstMatch(html)?.group(1);
+      final ogVideo = RegExp(r'<meta\s+property=[\"\x27]og:video[\"\x27]\s+content=[\"\x27](.*?)[\"\x27]').firstMatch(html)?.group(1);
 
       if (ogVideo != null || ogImage != null) {
         return TikTokVideoModel.fromUniversalMedia(

@@ -101,6 +101,23 @@ class UrlValidator {
     return null;
   }
 
+  /// Extract Instagram shortcode from URL
+  static String? extractInstagramShortcode(String input) {
+    final match = _instagramRegex.firstMatch(input.trim());
+    if (match != null && match.groupCount >= 4) {
+      return match.group(4);
+    }
+    // Fallback: extract short segment after p/ or reel/
+    final parts = input.split('/');
+    for (int i = 0; i < parts.length - 1; i++) {
+      if (['p', 'reel', 'reels', 'tv', 'share'].contains(parts[i])) {
+        final code = parts[i + 1].split('?')[0].trim();
+        if (code.isNotEmpty) return code;
+      }
+    }
+    return null;
+  }
+
   /// Get formatted display name for detected platform
   static String getPlatformName(MediaPlatform platform) {
     switch (platform) {
@@ -143,14 +160,12 @@ class UrlValidator {
     final match = _generalHttpRegex.firstMatch(trimmed);
     if (match != null) {
       String rawUrl = match.group(0)!;
-      // Remove trailing punctuation often pasted with URLs
       while (rawUrl.endsWith(')') || rawUrl.endsWith(']') || rawUrl.endsWith('}') || rawUrl.endsWith('.')) {
         rawUrl = rawUrl.substring(0, rawUrl.length - 1);
       }
       return rawUrl;
     }
 
-    // If starts with domain directly
     if (trimmed.contains('.com') || trimmed.contains('.net') || trimmed.contains('.io') || trimmed.contains('.be')) {
       return 'https://$trimmed';
     }

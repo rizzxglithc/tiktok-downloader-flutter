@@ -1,3 +1,4 @@
+import '../../core/utils/url_validator.dart';
 import '../../domain/entities/tiktok_video.dart';
 
 class TikTokVideoModel extends TikTokVideo {
