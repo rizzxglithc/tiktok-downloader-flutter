@@ -69,9 +69,11 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     } else if (mounted) {
-      CustomToast.showError(context, tiktokProvider.errorMessage.isNotEmpty
-          ? tiktokProvider.errorMessage
-          : 'Gagal mengambil video TikTok. Periksa tautan Anda.');
+      final err = tiktokProvider.errorMessage;
+      CustomToast.showError(
+        context,
+        (err != null && err.isNotEmpty) ? err : 'Gagal mengambil video TikTok. Periksa tautan Anda.',
+      );
     }
   }
 

@@ -40,7 +40,7 @@ void main() async {
   // Core & Data Layer
   final apiClient = ApiClient();
   final tiktokRemoteDataSource = TikTokRemoteDataSourceImpl(apiClient: apiClient);
-  final localHistoryDataSource = LocalHistoryDataSourceImpl(prefs);
+  final localHistoryDataSource = LocalHistoryDataSourceImpl(sharedPreferences: prefs);
 
   // Repositories
   final tiktokRepository = TikTokRepositoryImpl(remoteDataSource: tiktokRemoteDataSource);
