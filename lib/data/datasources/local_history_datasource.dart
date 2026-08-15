@@ -13,7 +13,7 @@ abstract class LocalHistoryDataSource {
 }
 
 class LocalHistoryDataSourceImpl implements LocalHistoryDataSource {
-  static const String _historyKey = 'tiktok_download_history_v3';
+  static const String _historyKey = 'tiktok_download_history_v4';
   final SharedPreferences sharedPreferences;
 
   LocalHistoryDataSourceImpl({required this.sharedPreferences});
@@ -29,15 +29,17 @@ class LocalHistoryDataSourceImpl implements LocalHistoryDataSource {
       final items = <DownloadItemModel>[];
       for (final str in jsonListString) {
         try {
-          final Map<String, dynamic> map = jsonDecode(str);
-          items.add(DownloadItemModel.fromJson(map));
+          if (str.trim().isNotEmpty) {
+            final Map<String, dynamic> map = jsonDecode(str);
+            items.add(DownloadItemModel.fromJson(map));
+          }
         } catch (_) {}
       }
 
       items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return items;
     } catch (e) {
-      throw StorageException('Gagal memuat riwayat: ${e.toString()}');
+      return [];
     }
   }
 
@@ -50,9 +52,7 @@ class LocalHistoryDataSourceImpl implements LocalHistoryDataSource {
 
       final stringList = currentList.map((e) => jsonEncode(e.toJson())).toList();
       await sharedPreferences.setStringList(_historyKey, stringList);
-    } catch (e) {
-      throw StorageException('Gagal menyimpan ke riwayat: ${e.toString()}');
-    }
+    } catch (_) {}
   }
 
   @override
@@ -67,17 +67,13 @@ class LocalHistoryDataSourceImpl implements LocalHistoryDataSource {
       currentList.removeWhere((element) => element.id == id);
       final stringList = currentList.map((e) => jsonEncode(e.toJson())).toList();
       await sharedPreferences.setStringList(_historyKey, stringList);
-    } catch (e) {
-      throw StorageException('Gagal menghapus riwayat: ${e.toString()}');
-    }
+    } catch (_) {}
   }
 
   @override
   Future<void> clearHistory() async {
     try {
       await sharedPreferences.remove(_historyKey);
-    } catch (e) {
-      throw StorageException('Gagal membersihkan riwayat: ${e.toString()}');
-    }
+    } catch (_) {}
   }
 }

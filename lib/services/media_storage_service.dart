@@ -6,7 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 class MediaStorageService {
   static const MethodChannel _channel = MethodChannel('com.rizz.tiktok_downloader/media');
 
-  /// Request storage permission (SDK 33+ uses Photos & Videos permission)
+  /// Request storage permission (optional on Android 10+ with scoped storage)
   static Future<bool> requestStoragePermission() async {
     if (!Platform.isAndroid) return true;
 
@@ -22,16 +22,14 @@ class MediaStorageService {
     }
   }
 
-  /// Get base download directory
+  /// Get base media storage directory (reliable internal app storage)
   static Future<Directory> getDownloadDirectory() async {
-    Directory? baseDir;
-    try {
-      if (Platform.isAndroid) {
-        baseDir = await getExternalStorageDirectory();
-      }
-    } catch (_) {}
-    baseDir ??= await getApplicationDocumentsDirectory();
-    return baseDir;
+    final appDir = await getApplicationDocumentsDirectory();
+    final tiktokDir = Directory('${appDir.path}/TikTok');
+    if (!await tiktokDir.exists()) {
+      await tiktokDir.create(recursive: true);
+    }
+    return tiktokDir;
   }
 
   /// Generate appropriate local save path for downloaded media
@@ -46,16 +44,16 @@ class MediaStorageService {
     final fileName = '${cleanTitle.isNotEmpty ? cleanTitle : "tiktok_${id}"}_$timestamp.$ext';
 
     final baseDir = await getDownloadDirectory();
-    final mediaDir = Directory('${baseDir.path}/${isVideo ? "videos" : "audios"}');
+    final mediaSubDir = Directory('${baseDir.path}/${isVideo ? "videos" : "audios"}');
 
-    if (!await mediaDir.exists()) {
-      await mediaDir.create(recursive: true);
+    if (!await mediaSubDir.exists()) {
+      await mediaSubDir.create(recursive: true);
     }
 
-    return '${mediaDir.path}/$fileName';
+    return '${mediaSubDir.path}/$fileName';
   }
 
-  /// Save to Android MediaStore Gallery via Kotlin Native Channel
+  /// Save copy to Android MediaStore (Gallery / Music) via Kotlin Native Channel
   static Future<String> saveToDeviceGallery({
     required String filePath,
     required bool isVideo,
@@ -101,7 +99,7 @@ class MediaStorageService {
         .replaceAll(RegExp(r'[\\/:*?"<>|#\n\r\t]'), '_')
         .replaceAll(RegExp(r'\s+'), '_')
         .trim()
-        .takeOnly(40);
+        .takeOnly(35);
   }
 }
 

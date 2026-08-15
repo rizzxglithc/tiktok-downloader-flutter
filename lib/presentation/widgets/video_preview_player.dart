@@ -24,21 +24,22 @@ class VideoPreviewPlayer extends StatefulWidget {
 class _VideoPreviewPlayerState extends State<VideoPreviewPlayer> {
   VideoPlayerController? _controller;
   bool _isInitialized = false;
-  bool _hasError = false;
   bool _isPlaying = false;
   bool _isMuted = false;
+  bool _isLoading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _initializePlayer();
-  }
-
-  Future<void> _initializePlayer() async {
+  Future<void> _startPlayback() async {
     if (widget.videoUrl.isEmpty) {
-      setState(() => _hasError = true);
+      _openFullScreen();
       return;
     }
+
+    if (_controller != null && _isInitialized) {
+      _togglePlayPause();
+      return;
+    }
+
+    setState(() => _isLoading = true);
 
     try {
       if (widget.videoUrl.startsWith('http://') || widget.videoUrl.startsWith('https://')) {
@@ -54,21 +55,23 @@ class _VideoPreviewPlayerState extends State<VideoPreviewPlayer> {
         _controller = VideoPlayerController.file(File(widget.videoUrl));
       }
 
-      await _controller!.initialize().timeout(const Duration(seconds: 12));
+      await _controller!.initialize().timeout(const Duration(seconds: 10));
       _controller!.setLooping(true);
-      
+      await _controller!.play();
+
       if (mounted) {
         setState(() {
           _isInitialized = true;
-          _hasError = false;
+          _isPlaying = true;
+          _isLoading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _hasError = true;
-          _isInitialized = false;
+          _isLoading = false;
         });
+        _openFullScreen();
       }
     }
   }
@@ -134,8 +137,8 @@ class _VideoPreviewPlayerState extends State<VideoPreviewPlayer> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // 1. Video Player Surface or Thumbnail
-          if (_isInitialized && _controller != null && !_hasError)
+          // 1. Video Player Surface or Thumbnail Cover
+          if (_isInitialized && _controller != null)
             GestureDetector(
               onTap: _togglePlayPause,
               child: Center(
@@ -149,7 +152,7 @@ class _VideoPreviewPlayerState extends State<VideoPreviewPlayer> {
             )
           else
             GestureDetector(
-              onTap: _openFullScreen,
+              onTap: _startPlayback,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -168,11 +171,11 @@ class _VideoPreviewPlayerState extends State<VideoPreviewPlayer> {
                       color: const Color(0xFF1C1C1E),
                       child: const Icon(Icons.movie_creation_outlined, color: AppColors.textMuted, size: 40),
                     ),
-                  // Dark Vignette
+                  // Subtle Vignette
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.black.withOpacity(0.3), Colors.black.withOpacity(0.7)],
+                        colors: [Colors.black.withOpacity(0.2), Colors.black.withOpacity(0.65)],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
@@ -182,21 +185,23 @@ class _VideoPreviewPlayerState extends State<VideoPreviewPlayer> {
               ),
             ),
 
-          // 2. Play / Pause Overlay Icon
-          if (!_isPlaying)
+          // 2. Play Button or Spinner
+          if (_isLoading)
+            const CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)
+          else if (!_isPlaying)
             GestureDetector(
-              onTap: _isInitialized ? _togglePlayPause : _openFullScreen,
+              onTap: _startPlayback,
               child: Container(
                 padding: EdgeInsets.all(isCompact ? 12 : 16),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.65),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+                  border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.5),
                 ),
                 child: Icon(
-                  _isInitialized ? Icons.play_arrow_rounded : Icons.fullscreen_rounded,
+                  Icons.play_arrow_rounded,
                   color: Colors.white,
-                  size: isCompact ? 28 : 36,
+                  size: isCompact ? 30 : 38,
                 ),
               ),
             ),
@@ -222,31 +227,6 @@ class _VideoPreviewPlayerState extends State<VideoPreviewPlayer> {
               ],
             ),
           ),
-
-          // 4. Fallback badge
-          if (_hasError)
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.touch_app_rounded, color: Colors.white, size: 12),
-                    SizedBox(width: 4),
-                    Text(
-                      'Ketuk untuk Buka Player',
-                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );

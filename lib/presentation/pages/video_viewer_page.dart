@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
@@ -62,7 +61,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
           _hasError = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -106,7 +105,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
         }
       });
     } else {
-      CustomToast.showInfo(context, 'Unduh video terlebih dahulu untuk memutar di aplikasi galeri.');
+      CustomToast.showInfo(context, 'Unduh video terlebih dahulu untuk memutar di aplikasi luar.');
     }
   }
 
@@ -125,14 +124,13 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
   @override
   Widget build(BuildContext context) {
     final isLocal = !widget.videoUrl.startsWith('http');
-    final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Stack(
           children: [
-            // 1. Center Video Surface or Error Display
+            // 1. Center Video Player Surface or Fallback
             Center(
               child: _isInitialized && _controller != null && !_hasError
                   ? GestureDetector(
@@ -150,33 +148,33 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.error_outline_rounded, color: Colors.white70, size: 48),
-                              const SizedBox(height: 14),
+                              const Icon(Icons.play_circle_outline_rounded, color: Colors.white70, size: 54),
+                              const SizedBox(height: 16),
                               const Text(
-                                'Gagal memuat video di pemutar internal.',
+                                'Buka di Pemutar Eksternal',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 8),
                               const Text(
-                                'Anda dapat membuka langsung menggunakan pemutar bawaan HP atau memutar ulang.',
+                                'Gunakan pemutar video bawaan HP (Google Photos, VLC, Galeri) untuk memutar media ini.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: 24),
                               if (isLocal)
                                 ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.white,
                                     foregroundColor: Colors.black,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                                   ),
                                   onPressed: _openInExternalPlayer,
-                                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                                  label: const Text('Buka di Pemutar HP', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  icon: const Icon(Icons.open_in_new_rounded, size: 20),
+                                  label: const Text('Buka di Pemutar HP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                 ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 12),
                               TextButton.icon(
                                 onPressed: () {
                                   setState(() {
@@ -185,8 +183,8 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
                                   });
                                   _initializePlayer();
                                 },
-                                icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 18),
-                                label: const Text('Coba Lagi', style: TextStyle(color: Colors.white)),
+                                icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 18),
+                                label: const Text('Coba Putar Lagi', style: TextStyle(color: Colors.white70)),
                               ),
                             ],
                           ),
@@ -196,7 +194,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
                         ),
             ),
 
-            // 2. Top Navigation Bar
+            // 2. Top Header Navigation
             if (_showControls || _hasError)
               Positioned(
                 top: 0,
@@ -243,7 +241,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
                 ),
               ),
 
-            // 3. Center Play/Pause & Quick Seek Overlay
+            // 3. Center Play/Pause & Quick Seek
             if (_showControls && _isInitialized && _controller != null)
               Center(
                 child: Row(
@@ -278,7 +276,7 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
                 ),
               ),
 
-            // 4. Bottom Playback Controls
+            // 4. Bottom Controls & Progress
             if (_showControls && _isInitialized && _controller != null)
               Positioned(
                 bottom: 0,
@@ -296,7 +294,6 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Seek bar
                       VideoProgressIndicator(
                         _controller!,
                         allowScrubbing: true,
@@ -308,7 +305,6 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
                         padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
                       const SizedBox(height: 4),
-                      // Time display & Mute toggle
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -316,14 +312,10 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
                             '${Formatters.formatDuration(_controller!.value.position.inSeconds)} / ${Formatters.formatDuration(_controller!.value.duration.inSeconds)}',
                             style: const TextStyle(color: Colors.white70, fontSize: 12),
                           ),
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: Icon(_isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                                    color: Colors.white, size: 20),
-                                onPressed: _toggleMute,
-                              ),
-                            ],
+                          IconButton(
+                            icon: Icon(_isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                                color: Colors.white, size: 20),
+                            onPressed: _toggleMute,
                           ),
                         ],
                       ),

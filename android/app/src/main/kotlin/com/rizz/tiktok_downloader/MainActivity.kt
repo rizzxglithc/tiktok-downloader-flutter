@@ -34,7 +34,8 @@ class MainActivity: FlutterActivity() {
                         val savedPath = saveMediaToGallery(context, filePath, isVideo, title)
                         result.success(savedPath)
                     } catch (e: Exception) {
-                        result.error("SAVE_FAILED", e.localizedMessage, null)
+                        // Return source filePath on error so app never breaks
+                        result.success(filePath)
                     }
                 }
                 "scanFile" -> {
@@ -53,37 +54,15 @@ class MainActivity: FlutterActivity() {
 
     private fun saveMediaToGallery(context: Context, sourcePath: String, isVideo: Boolean, title: String): String {
         val sourceFile = File(sourcePath)
-        if (!sourceFile.exists()) throw Exception("Source file not found at: $sourcePath")
+        if (!sourceFile.exists()) return sourcePath
 
         val fileName = sourceFile.name
         val mimeType = if (isVideo) "video/mp4" else "audio/mpeg"
 
-        // Preferred public directory: Download/TikTok or Movies/TikTok
-        val publicDir = if (isVideo) {
-            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "TikTok")
-        } else {
-            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "TikTok_Audio")
-        }
-
-        if (!publicDir.exists()) {
-            publicDir.mkdirs()
-        }
-
-        val destinationFile = File(publicDir, fileName)
-        
-        // Copy file to public Download folder
-        try {
-            sourceFile.copyTo(destinationFile, overwrite = true)
-        } catch (e: Exception) {
-            // Fallback to original path if copy fails
-        }
-
-        val targetPath = if (destinationFile.exists()) destinationFile.absolutePath else sourceFile.absolutePath
-
-        // 1. Insert into MediaStore for Android 10+ (API 29+) so Gallery indexes immediately
+        // On Android 10+ (API 29+), use MediaStore to save directly to Movies/TikTok or Music/TikTok
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
-                val relativeDir = if (isVideo) "${Environment.DIRECTORY_DOWNLOADS}/TikTok" else "${Environment.DIRECTORY_DOWNLOADS}/TikTok_Audio"
+                val relativeDir = if (isVideo) "${Environment.DIRECTORY_MOVIES}/TikTok" else "${Environment.DIRECTORY_MUSIC}/TikTok"
                 val contentValues = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                     put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
@@ -109,17 +88,23 @@ class MainActivity: FlutterActivity() {
                     context.contentResolver.update(uri, contentValues, null, null)
                 }
             } catch (_: Exception) {}
+        } else {
+            // Android 9 and below
+            try {
+                val publicDir = if (isVideo) {
+                    File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "TikTok")
+                } else {
+                    File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "TikTok")
+                }
+                if (!publicDir.exists()) publicDir.mkdirs()
+                val destFile = File(publicDir, fileName)
+                sourceFile.copyTo(destFile, overwrite = true)
+                MediaScannerConnection.scanFile(context, arrayOf(destFile.absolutePath), arrayOf(mimeType), null)
+                return destFile.absolutePath
+            } catch (_: Exception) {}
         }
 
-        // 2. Also trigger MediaScannerConnection for all Android versions
-        MediaScannerConnection.scanFile(
-            context,
-            arrayOf(targetPath),
-            arrayOf(mimeType),
-            null
-        )
-
-        // ALWAYS return the POSIX filesystem path so File(path) works everywhere in Flutter!
-        return targetPath
+        MediaScannerConnection.scanFile(context, arrayOf(sourcePath), arrayOf(mimeType), null)
+        return sourcePath
     }
 }
