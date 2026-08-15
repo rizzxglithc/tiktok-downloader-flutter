@@ -1,0 +1,64 @@
+name: Build TikTok Downloader Release APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Verify Flutter & Environment
+        run: flutter --version
+
+      - name: Install Project Dependencies
+        run: flutter pub get
+
+      - name: Build Android Release APK
+        run: flutter build apk --release
+
+      - name: Rename APK for Easy Identification
+        run: |
+          mkdir -p output
+          cp build/app/outputs/flutter-apk/app-release.apk output/tiktok.apk
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiktok-downloader-apk
+          path: output/tiktok.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/heads/')
+        with:
+          tag_name: v1.0.0-build-${{ github.run_number }}
+          name: TikTok Downloader v1.0.0 (Build ${{ github.run_number }})
+          body: |
+            ## TikTok Downloader Mobile Application
+            Production build generated automatically via GitHub Actions CI/CD.
+            - **Platform:** Android 5.0+ (API 21+)
+            - **Architecture:** Universal APK
+          files: output/tiktok.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
