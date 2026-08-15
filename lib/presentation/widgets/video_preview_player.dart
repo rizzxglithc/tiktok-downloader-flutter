@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -8,14 +9,12 @@ class VideoPreviewPlayer extends StatefulWidget {
   final String videoUrl;
   final String thumbnailUrl;
   final String title;
-  final double aspectRatio;
 
   const VideoPreviewPlayer({
     super.key,
     required this.videoUrl,
     required this.thumbnailUrl,
     required this.title,
-    this.aspectRatio = 9 / 16,
   });
 
   @override
@@ -32,48 +31,39 @@ class _VideoPreviewPlayerState extends State<VideoPreviewPlayer> {
   @override
   void initState() {
     super.initState();
-    _initVideoPlayer();
+    _initializePlayer();
   }
 
-  Future<void> _initVideoPlayer() async {
+  Future<void> _initializePlayer() async {
     if (widget.videoUrl.isEmpty) {
-      if (mounted) setState(() => _hasError = true);
+      setState(() => _hasError = true);
       return;
     }
 
     try {
-      final uri = Uri.parse(widget.videoUrl);
-      _controller = VideoPlayerController.networkUrl(
-        uri,
-        httpHeaders: {
-          'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Referer': 'https://www.tiktok.com/',
-        },
-      );
+      if (widget.videoUrl.startsWith('http://') || widget.videoUrl.startsWith('https://')) {
+        _controller = VideoPlayerController.networkUrl(
+          Uri.parse(widget.videoUrl),
+          httpHeaders: {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Referer': 'https://www.tiktok.com/',
+          },
+        );
+      } else {
+        _controller = VideoPlayerController.file(File(widget.videoUrl));
+      }
 
-      await _controller!.initialize();
+      await _controller!.initialize().timeout(const Duration(seconds: 12));
       _controller!.setLooping(true);
-      _controller!.setVolume(1.0);
-
-      _controller!.addListener(() {
-        if (mounted) {
-          final isPlaying = _controller?.value.isPlaying ?? false;
-          if (_isPlaying != isPlaying) {
-            setState(() => _isPlaying = isPlaying);
-          }
-        }
-      });
-
+      
       if (mounted) {
         setState(() {
           _isInitialized = true;
           _hasError = false;
         });
-        // Auto play on preview
-        _controller!.play();
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -85,18 +75,40 @@ class _VideoPreviewPlayerState extends State<VideoPreviewPlayer> {
 
   void _togglePlayPause() {
     if (_controller == null || !_isInitialized) return;
-    if (_controller!.value.isPlaying) {
-      _controller!.pause();
-    } else {
-      _controller!.play();
-    }
+    setState(() {
+      if (_controller!.value.isPlaying) {
+        _controller!.pause();
+        _isPlaying = false;
+      } else {
+        _controller!.play();
+        _isPlaying = true;
+      }
+    });
   }
 
   void _toggleMute() {
     if (_controller == null || !_isInitialized) return;
-    final newMute = !_isMuted;
-    _controller!.setVolume(newMute ? 0.0 : 1.0);
-    setState(() => _isMuted = newMute);
+    setState(() {
+      _isMuted = !_isMuted;
+      _controller!.setVolume(_isMuted ? 0.0 : 1.0);
+    });
+  }
+
+  void _openFullScreen() {
+    if (_controller != null && _controller!.value.isPlaying) {
+      _controller!.pause();
+      setState(() => _isPlaying = false);
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VideoViewerPage(
+          videoUrl: widget.videoUrl,
+          title: widget.title,
+        ),
+      ),
+    );
   }
 
   @override
@@ -107,166 +119,140 @@ class _VideoPreviewPlayerState extends State<VideoPreviewPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        color: const Color(0xFF0D0D0E),
-        child: AspectRatio(
-          aspectRatio: widget.aspectRatio,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // 1. Thumbnail Background
-              if (widget.thumbnailUrl.isNotEmpty)
-                Positioned.fill(
-                  child: CachedNetworkImage(
-                    imageUrl: widget.thumbnailUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: AppColors.surface,
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                          strokeWidth: 2,
-                        ),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: AppColors.surface,
-                      child: const Icon(Icons.movie_outlined, color: AppColors.textMuted, size: 40),
-                    ),
-                  ),
-                ),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 360;
 
-              // 2. Video Player Surface
-              if (_isInitialized && _controller != null)
-                Positioned.fill(
-                  child: GestureDetector(
-                    onTap: _togglePlayPause,
-                    child: Center(
-                      child: AspectRatio(
-                        aspectRatio: _controller!.value.aspectRatio,
-                        child: VideoPlayer(_controller!),
-                      ),
-                    ),
-                  ),
-                ),
-
-              // 3. Vignette Gradient Overlay
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.black.withOpacity(0.4),
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      stops: const [0.0, 0.5, 1.0],
-                    ),
-                  ),
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxHeight: 380, minHeight: 220),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141416),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 1. Video Player Surface or Thumbnail
+          if (_isInitialized && _controller != null && !_hasError)
+            GestureDetector(
+              onTap: _togglePlayPause,
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: _controller!.value.aspectRatio > 0
+                      ? _controller!.value.aspectRatio
+                      : (9 / 16),
+                  child: VideoPlayer(_controller!),
                 ),
               ),
-
-              // 4. Center Play / Pause indicator (when paused)
-              if (_isInitialized && !_isPlaying)
-                GestureDetector(
-                  onTap: _togglePlayPause,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 40,
-                    ),
-                  ),
-                ),
-
-              // 5. Loading Spinner
-              if (!_isInitialized && !_hasError)
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.5,
-                    ),
-                  ),
-                ),
-
-              // 6. Top Actions (Fullscreen & Mute)
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Row(
-                  children: [
-                    if (_isInitialized)
-                      _buildIconButton(
-                        icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                        onTap: _toggleMute,
+            )
+          else
+            GestureDetector(
+              onTap: _openFullScreen,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (widget.thumbnailUrl.isNotEmpty)
+                    CachedNetworkImage(
+                      imageUrl: widget.thumbnailUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(color: const Color(0xFF1C1C1E)),
+                      errorWidget: (context, url, error) => Container(
+                        color: const Color(0xFF1C1C1E),
+                        child: const Icon(Icons.movie_creation_outlined, color: AppColors.textMuted, size: 40),
                       ),
-                    const SizedBox(width: 8),
-                    _buildIconButton(
-                      icon: Icons.fullscreen_rounded,
-                      onTap: () {
-                        _controller?.pause();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => VideoViewerPage(
-                              videoUrl: widget.videoUrl,
-                              title: widget.title,
-                            ),
-                          ),
-                        ).then((_) {
-                          if (mounted && _isInitialized) {
-                            _controller?.play();
-                          }
-                        });
-                      },
+                    )
+                  else
+                    Container(
+                      color: const Color(0xFF1C1C1E),
+                      child: const Icon(Icons.movie_creation_outlined, color: AppColors.textMuted, size: 40),
+                    ),
+                  // Dark Vignette
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.black.withOpacity(0.3), Colors.black.withOpacity(0.7)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // 2. Play / Pause Overlay Icon
+          if (!_isPlaying)
+            GestureDetector(
+              onTap: _isInitialized ? _togglePlayPause : _openFullScreen,
+              child: Container(
+                padding: EdgeInsets.all(isCompact ? 12 : 16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.65),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+                ),
+                child: Icon(
+                  _isInitialized ? Icons.play_arrow_rounded : Icons.fullscreen_rounded,
+                  color: Colors.white,
+                  size: isCompact ? 28 : 36,
+                ),
+              ),
+            ),
+
+          // 3. Floating Controls (Mute & Fullscreen)
+          Positioned(
+            bottom: 12,
+            right: 12,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isInitialized) ...[
+                  _buildCircleButton(
+                    icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                    onTap: _toggleMute,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                _buildCircleButton(
+                  icon: Icons.fullscreen_rounded,
+                  onTap: _openFullScreen,
+                ),
+              ],
+            ),
+          ),
+
+          // 4. Fallback badge
+          if (_hasError)
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.touch_app_rounded, color: Colors.white, size: 12),
+                    SizedBox(width: 4),
+                    Text(
+                      'Ketuk untuk Buka Player',
+                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
               ),
-
-              // 7. Progress Bar at the bottom
-              if (_isInitialized && _controller != null)
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: VideoProgressIndicator(
-                    _controller!,
-                    allowScrubbing: true,
-                    colors: VideoProgressColors(
-                      playedColor: Colors.white,
-                      bufferedColor: Colors.white.withOpacity(0.3),
-                      backgroundColor: Colors.white.withOpacity(0.1),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                  ),
-                ),
-            ],
-          ),
-        ),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildIconButton({required IconData icon, required VoidCallback onTap}) {
+  Widget _buildCircleButton({required IconData icon, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(

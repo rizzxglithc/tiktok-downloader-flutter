@@ -2,111 +2,108 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../core/errors/app_exceptions.dart';
 
 class MediaStorageService {
   static const MethodChannel _channel = MethodChannel('com.rizz.tiktok_downloader/media');
 
-  /// Request storage / media permissions according to Android version
+  /// Request storage permission (SDK 33+ uses Photos & Videos permission)
   static Future<bool> requestStoragePermission() async {
-    if (Platform.isAndroid) {
-      final statuses = await [
-        Permission.videos,
-        Permission.audio,
-        Permission.storage,
-      ].request();
+    if (!Platform.isAndroid) return true;
 
-      if (statuses[Permission.videos]?.isGranted == true ||
-          statuses[Permission.storage]?.isGranted == true) {
+    try {
+      if (await Permission.videos.request().isGranted &&
+          await Permission.audio.request().isGranted) {
         return true;
       }
-      return true; // Proceed with Scoped Storage fallback
+      final status = await Permission.storage.request();
+      return status.isGranted;
+    } catch (_) {
+      return true;
     }
-    return true;
   }
 
-  /// Get the app download staging directory
-  static Future<Directory> getDownloadDirectory() async {
-    Directory? baseDir;
-    try {
-      baseDir = await getExternalStorageDirectory();
-    } catch (_) {}
-    baseDir ??= await getApplicationDocumentsDirectory();
-
-    final tiktokDir = Directory('${baseDir.path}/TikTokDownloader');
-    if (!await tiktokDir.exists()) {
-      await tiktokDir.create(recursive: true);
-    }
-    return tiktokDir;
-  }
-
-  /// Generate safe file path for downloading MP4 or MP3
+  /// Generate appropriate local save path for downloaded media
   static Future<String> generateFilePath({
     required String id,
     required String title,
     required bool isVideo,
   }) async {
-    final dir = await getDownloadDirectory();
-    
-    // Sanitize filename
-    final safeTitle = title
-        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
-        .replaceAll(RegExp(r'\s+'), '_')
-        .trim();
-    
-    final cleanTitle = safeTitle.length > 25 ? safeTitle.substring(0, 25) : safeTitle;
+    final cleanTitle = _sanitizeFileName(title);
     final ext = isVideo ? 'mp4' : 'mp3';
-    final fileName = 'tiktok_${id}_${cleanTitle}_${DateTime.now().millisecondsSinceEpoch}.$ext';
-    
-    return '${dir.path}/$fileName';
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final fileName = '${cleanTitle.isNotEmpty ? cleanTitle : "tiktok_${id}"}_$timestamp.$ext';
+
+    Directory? baseDir;
+    try {
+      if (Platform.isAndroid) {
+        // Preferred base directory
+        baseDir = await getExternalStorageDirectory();
+      }
+    } catch (_) {}
+
+    baseDir ??= await getApplicationDocumentsDirectory();
+    final mediaDir = Directory('${baseDir.path}/${isVideo ? "videos" : "audios"}');
+
+    if (!await mediaDir.exists()) {
+      await mediaDir.create(recursive: true);
+    }
+
+    return '${mediaDir.path}/$fileName';
   }
 
-  /// Save downloaded MP4/MP3 to Android MediaStore/Gallery so it appears in Photos & Gallery apps
+  /// Save to Android MediaStore Gallery via Kotlin Native Channel
   static Future<String> saveToDeviceGallery({
     required String filePath,
     required bool isVideo,
     required String title,
   }) async {
-    final file = File(filePath);
-    if (!await file.exists()) {
-      throw const StorageException('File tidak ditemukan di penyimpanan lokal.');
-    }
+    if (!Platform.isAndroid) return filePath;
 
-    if (Platform.isAndroid) {
-      try {
-        final result = await _channel.invokeMethod<String>('saveToGallery', {
-          'filePath': filePath,
-          'isVideo': isVideo,
-          'title': title,
-        });
-        if (result != null && result.isNotEmpty) {
-          return result;
-        }
-      } catch (e) {
-        // Fallback: trigger media scanner
-        try {
-          await _channel.invokeMethod('scanFile', {'filePath': filePath});
-        } catch (_) {}
-      }
-    }
-    return filePath;
-  }
-
-  /// Check if a local file exists
-  static Future<bool> fileExists(String path) async {
-    if (path.isEmpty) return false;
-    return await File(path).exists();
-  }
-
-  /// Delete a local file safely
-  static Future<void> deleteFile(String path) async {
     try {
-      if (path.isNotEmpty) {
-        final file = File(path);
-        if (await file.exists()) {
-          await file.delete();
-        }
+      final result = await _channel.invokeMethod<String>('saveToGallery', {
+        'filePath': filePath,
+        'isVideo': isVideo,
+        'title': _sanitizeFileName(title),
+      });
+      return result ?? filePath;
+    } catch (_) {
+      return filePath;
+    }
+  }
+
+  /// Trigger Android MediaScanner to update gallery index
+  static Future<void> scanFile(String filePath) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('scanFile', {'filePath': filePath});
+    } catch (_) {}
+  }
+
+  /// Delete local file safely
+  static Future<bool> deleteFile(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        await file.delete();
+        await scanFile(filePath);
+        return true;
       }
     } catch (_) {}
+    return false;
+  }
+
+  static String _sanitizeFileName(String input) {
+    return input
+        .replaceAll(RegExp(r'[\\/:*?"<>|#\n\r\t]'), '_')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .trim()
+        .takeOnly(40);
+  }
+}
+
+extension _StringExt on String {
+  String takeOnly(int n) {
+    if (length <= n) return this;
+    return substring(0, n);
   }
 }

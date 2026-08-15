@@ -2,57 +2,63 @@ import 'package:dio/dio.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/errors/app_exceptions.dart';
 import '../../core/network/api_client.dart';
+import '../../core/utils/url_validator.dart';
 import '../models/tiktok_video_model.dart';
 
 abstract class TikTokRemoteDataSource {
-  Future<TikTokVideoModel> fetchVideoDetails(String url);
+  Future<TikTokVideoModel> getVideoInfo(String url);
 }
 
 class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
-  final ApiClient _apiClient;
+  final ApiClient apiClient;
 
-  TikTokRemoteDataSourceImpl({ApiClient? apiClient})
-      : _apiClient = apiClient ?? ApiClient();
+  TikTokRemoteDataSourceImpl({required this.apiClient});
 
   @override
-  Future<TikTokVideoModel> fetchVideoDetails(String url) async {
+  Future<TikTokVideoModel> getVideoInfo(String url) async {
+    // 1. Resolve short links if applicable
+    final resolvedUrl = await UrlValidator.resolveToCanonicalUrl(url);
+
+    // 2. Fetch from TikWM Primary API
     try {
-      // 1. Primary Attempt: TikWM API
       final formData = FormData.fromMap({
-        'url': url,
+        'url': resolvedUrl,
         'hd': 1,
       });
 
-      final response = await _apiClient.dio.post(
+      final response = await apiClient.post(
         ApiConstants.tikwmBaseUrl,
         data: formData,
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
+          responseType: ResponseType.json,
+          receiveTimeout: ApiConstants.receiveTimeout,
+          sendTimeout: ApiConstants.connectTimeout,
         ),
       );
 
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data;
-        if (data is Map<String, dynamic>) {
-          final code = data['code'];
-          if (code == 0 && data['data'] != null) {
-            return TikTokVideoModel.fromTikWmJson(data, url);
-          } else {
-            final msg = data['msg']?.toString() ?? 'Gagal memproses video TikTok.';
-            throw ApiException(msg);
-          }
-        }
-      }
+      final Map<String, dynamic> data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{};
 
-      throw const ApiException('Format respon server tidak dikenali.');
-    } on DioException catch (e) {
-      if (e.error is AppException) {
-        throw e.error as AppException;
+      final code = data['code'];
+      if (code == 0 && data.containsKey('data')) {
+        final videoData = data['data'] as Map<String, dynamic>;
+        return TikTokVideoModel.fromJson(videoData, resolvedUrl);
+      } else {
+        final msg = data['msg'] as String? ?? 'Gagal memproses video TikTok. Pastikan video tidak di-private.';
+        throw ServerException(msg);
       }
-      throw ApiException(e.message ?? 'Gagal menghubungi server downloader.');
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        throw const NetworkException('Koneksi internet lambat atau timeout. Silakan coba lagi.');
+      }
+      throw NetworkException('Terjadi kendala jaringan: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      throw ApiException('Terjadi kendala saat memproses video: ${e.toString()}');
+      throw ServerException('Gagal mengambil data video: ${e.toString()}');
     }
   }
 }

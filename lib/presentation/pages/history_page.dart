@@ -36,11 +36,20 @@ class _HistoryPageState extends State<HistoryPage> {
 
   void _handleOpenMedia(BuildContext context, String filePath, String title, bool isVideo) {
     if (filePath.isEmpty) {
-      CustomToast.showError(context, 'Path file tidak valid.');
+      CustomToast.showError(context, 'Path file tidak ditemukan.');
       return;
     }
 
-    if (isVideo && File(filePath).existsSync()) {
+    final file = File(filePath);
+    final exists = file.existsSync();
+
+    if (!exists) {
+      // File was removed by user from file manager
+      CustomToast.showError(context, 'File fisik telah dipindahkan atau dihapus dari penyimpanan.');
+      return;
+    }
+
+    if (isVideo) {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -51,9 +60,10 @@ class _HistoryPageState extends State<HistoryPage> {
         ),
       );
     } else {
+      // Audio or External Launch
       OpenFilex.open(filePath).then((result) {
         if (result.type != ResultType.done && mounted) {
-          CustomToast.showInfo(context, 'Membuka file: $filePath');
+          CustomToast.showInfo(context, 'Membuka audio: $title');
         }
       });
     }
@@ -61,7 +71,9 @@ class _HistoryPageState extends State<HistoryPage> {
 
   void _handleShare(String filePath, String title) {
     if (filePath.isNotEmpty && File(filePath).existsSync()) {
-      Share.shareXFiles([XFile(filePath)], text: 'Dibagikan via TikTok Downloader Pro: $title');
+      Share.shareXFiles([XFile(filePath)], text: 'Dibagikan via TikTok Downloader: $title');
+    } else {
+      CustomToast.showError(context, 'File tidak ditemukan untuk dibagikan.');
     }
   }
 
@@ -69,6 +81,8 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget build(BuildContext context) {
     final historyProvider = context.watch<HistoryProvider>();
     final items = historyProvider.filteredItems;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 360;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -115,7 +129,7 @@ class _HistoryPageState extends State<HistoryPage> {
         children: [
           // 1. Search Bar & Filter Chips
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 20, vertical: 8),
             child: Column(
               children: [
                 // Search Input
@@ -152,31 +166,34 @@ class _HistoryPageState extends State<HistoryPage> {
                 const SizedBox(height: 10),
 
                 // Filter Buttons
-                Row(
-                  children: [
-                    _buildFilterChip(
-                      label: 'Semua (${historyProvider.allItems.length})',
-                      isSelected: historyProvider.selectedFilter == HistoryFilter.all,
-                      onTap: () => historyProvider.setFilter(HistoryFilter.all),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildFilterChip(
-                      label: 'Video MP4',
-                      isSelected: historyProvider.selectedFilter == HistoryFilter.video,
-                      onTap: () => historyProvider.setFilter(HistoryFilter.video),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildFilterChip(
-                      label: 'Audio MP3',
-                      isSelected: historyProvider.selectedFilter == HistoryFilter.audio,
-                      onTap: () => historyProvider.setFilter(HistoryFilter.audio),
-                    ),
-                  ],
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildFilterChip(
+                        label: 'Semua (${historyProvider.allItems.length})',
+                        isSelected: historyProvider.selectedFilter == HistoryFilter.all,
+                        onTap: () => historyProvider.setFilter(HistoryFilter.all),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
+                        label: 'Video MP4',
+                        isSelected: historyProvider.selectedFilter == HistoryFilter.video,
+                        onTap: () => historyProvider.setFilter(HistoryFilter.video),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
+                        label: 'Audio MP3',
+                        isSelected: historyProvider.selectedFilter == HistoryFilter.audio,
+                        onTap: () => historyProvider.setFilter(HistoryFilter.audio),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
 
           // 2. History List
           Expanded(
@@ -186,7 +203,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
                             color: AppColors.surface,
                             shape: BoxShape.circle,
@@ -195,10 +212,10 @@ class _HistoryPageState extends State<HistoryPage> {
                           child: const Icon(
                             Icons.history_rounded,
                             color: AppColors.textMuted,
-                            size: 38,
+                            size: 36,
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 12),
                         const Text(
                           'Belum ada riwayat unduhan',
                           style: TextStyle(
@@ -209,18 +226,19 @@ class _HistoryPageState extends State<HistoryPage> {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          'File yang berhasil diunduh akan otomatis tercatat di sini',
+                          'Media yang diunduh akan otomatis tersimpan di sini',
                           style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                         ),
                       ],
                     ),
                   )
                 : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
+                    padding: EdgeInsets.fromLTRB(isCompact ? 12 : 20, 4, isCompact ? 12 : 20, 100),
                     itemCount: items.length,
                     separatorBuilder: (context, index) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final item = items[index];
+                      final fileExists = item.filePath.isNotEmpty && File(item.filePath).existsSync();
 
                       return GlassCard(
                         padding: const EdgeInsets.all(12),
@@ -228,7 +246,7 @@ class _HistoryPageState extends State<HistoryPage> {
                         onTap: () => _handleOpenMedia(context, item.filePath, item.title, item.isVideo),
                         child: Row(
                           children: [
-                            // Thumbnail / Icon
+                            // Thumbnail / Media Icon
                             ClipRRect(
                               borderRadius: BorderRadius.circular(10),
                               child: Container(
@@ -263,25 +281,43 @@ class _HistoryPageState extends State<HistoryPage> {
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 14,
+                                      fontSize: 13.5,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
                                     '${item.author} • ${Formatters.formatBytes(item.totalBytes)}',
-                                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11.5),
                                   ),
                                   const SizedBox(height: 2),
-                                  Text(
-                                    Formatters.formatDate(item.createdAt),
-                                    style: const TextStyle(color: AppColors.textDisabled, fontSize: 11),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        Formatters.formatDate(item.createdAt),
+                                        style: const TextStyle(color: AppColors.textDisabled, fontSize: 10.5),
+                                      ),
+                                      if (!fileExists) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.error.withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: const Text(
+                                            'File dipindahkan',
+                                            style: TextStyle(color: AppColors.error, fontSize: 9.5, fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
 
-                            // Actions (Share & Delete)
+                            // Actions
                             IconButton(
                               icon: const Icon(Icons.share_rounded, color: AppColors.textSecondary, size: 18),
                               onPressed: () => _handleShare(item.filePath, item.title),

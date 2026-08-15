@@ -87,13 +87,15 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final tiktokProvider = context.watch<TikTokProvider>();
     final historyProvider = context.watch<HistoryProvider>();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 360;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+          padding: EdgeInsets.fromLTRB(isCompact ? 14 : 20, 16, isCompact ? 14 : 20, 100),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -168,14 +170,14 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 26),
 
               // 2. Headline
-              const Text(
+              Text(
                 'Unduh Video & Audio\nKualitas Penuh',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 26,
+                  fontSize: isCompact ? 22 : 26,
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.6,
                   height: 1.25,
@@ -186,15 +188,15 @@ class _HomePageState extends State<HomePage> {
                 'Tempel tautan video TikTok untuk mengunduh MP4 HD atau MP3 langsung ke galeri.',
                 style: TextStyle(
                   color: AppColors.textSecondary,
-                  fontSize: 14,
+                  fontSize: 13.5,
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
 
               // 3. Main Input Card
               GlassCard(
-                padding: const EdgeInsets.all(18),
+                padding: EdgeInsets.all(isCompact ? 14 : 18),
                 borderRadius: 20,
                 child: Column(
                   children: [
@@ -222,7 +224,7 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
               // 4. Quick Features Cards
               Row(
@@ -230,13 +232,13 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     child: _buildFeaturePill(Icons.high_quality_rounded, 'Full HD 1080p', 'Kualitas tinggi'),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: _buildFeaturePill(Icons.audiotrack_rounded, 'Audio MP3', 'Original sound'),
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
 
               // 5. Recent Downloads Header
               if (historyProvider.allItems.isNotEmpty) ...[
@@ -258,15 +260,15 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
                 // Recent items horizontal list
                 SizedBox(
-                  height: 140,
+                  height: 130,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: historyProvider.allItems.take(5).length,
-                    separatorBuilder: (context, index) => const SizedBox(width: 12),
+                    itemCount: historyProvider.allItems.take(6).length,
+                    separatorBuilder: (context, index) => const SizedBox(width: 10),
                     itemBuilder: (context, index) {
                       final item = historyProvider.allItems[index];
                       return GestureDetector(
@@ -284,7 +286,7 @@ class _HomePageState extends State<HomePage> {
                           }
                         },
                         child: Container(
-                          width: 110,
+                          width: 105,
                           decoration: BoxDecoration(
                             color: AppColors.surface,
                             borderRadius: BorderRadius.circular(14),
@@ -359,7 +361,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildFeaturePill(IconData icon, String title, String subtitle) {
     return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       borderRadius: 14,
       child: Row(
         children: [
@@ -379,10 +381,14 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
                 ),
                 Text(
                   subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
                 ),
               ],

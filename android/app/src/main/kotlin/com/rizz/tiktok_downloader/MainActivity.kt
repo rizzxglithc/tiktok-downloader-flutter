@@ -58,56 +58,68 @@ class MainActivity: FlutterActivity() {
         val fileName = sourceFile.name
         val mimeType = if (isVideo) "video/mp4" else "audio/mpeg"
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val relativeDir = if (isVideo) "${Environment.DIRECTORY_MOVIES}/TikTok" else "${Environment.DIRECTORY_MUSIC}/TikTok"
-            val contentValues = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-                put(MediaStore.MediaColumns.RELATIVE_PATH, relativeDir)
-                put(MediaStore.MediaColumns.IS_PENDING, 1)
-            }
-
-            val collection = if (isVideo) {
-                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            } else {
-                MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            }
-
-            val uri: Uri = context.contentResolver.insert(collection, contentValues)
-                ?: throw Exception("Failed to create MediaStore entry")
-
-            context.contentResolver.openOutputStream(uri)?.use { outStream ->
-                FileInputStream(sourceFile).use { inStream ->
-                    inStream.copyTo(outStream)
-                }
-            } ?: throw Exception("Failed to open output stream for MediaStore")
-
-            contentValues.clear()
-            contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
-            context.contentResolver.update(uri, contentValues, null, null)
-
-            return uri.toString()
+        // Preferred public directory: Download/TikTok or Movies/TikTok
+        val publicDir = if (isVideo) {
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "TikTok")
         } else {
-            val targetBase = if (isVideo) {
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
-            } else {
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
-            }
-            val tiktokFolder = File(targetBase, "TikTok")
-            if (!tiktokFolder.exists()) {
-                tiktokFolder.mkdirs()
-            }
-
-            val destFile = File(tiktokFolder, fileName)
-            sourceFile.copyTo(destFile, overwrite = true)
-
-            MediaScannerConnection.scanFile(
-                context,
-                arrayOf(destFile.absolutePath),
-                arrayOf(mimeType),
-                null
-            )
-            return destFile.absolutePath
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "TikTok_Audio")
         }
+
+        if (!publicDir.exists()) {
+            publicDir.mkdirs()
+        }
+
+        val destinationFile = File(publicDir, fileName)
+        
+        // Copy file to public Download folder
+        try {
+            sourceFile.copyTo(destinationFile, overwrite = true)
+        } catch (e: Exception) {
+            // Fallback to original path if copy fails
+        }
+
+        val targetPath = if (destinationFile.exists()) destinationFile.absolutePath else sourceFile.absolutePath
+
+        // 1. Insert into MediaStore for Android 10+ (API 29+) so Gallery indexes immediately
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val relativeDir = if (isVideo) "${Environment.DIRECTORY_DOWNLOADS}/TikTok" else "${Environment.DIRECTORY_DOWNLOADS}/TikTok_Audio"
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, relativeDir)
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+
+                val collection = if (isVideo) {
+                    MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                } else {
+                    MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                }
+
+                val uri: Uri? = context.contentResolver.insert(collection, contentValues)
+                if (uri != null) {
+                    context.contentResolver.openOutputStream(uri)?.use { outStream ->
+                        FileInputStream(sourceFile).use { inStream ->
+                            inStream.copyTo(outStream)
+                        }
+                    }
+                    contentValues.clear()
+                    contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    context.contentResolver.update(uri, contentValues, null, null)
+                }
+            } catch (_: Exception) {}
+        }
+
+        // 2. Also trigger MediaScannerConnection for all Android versions
+        MediaScannerConnection.scanFile(
+            context,
+            arrayOf(targetPath),
+            arrayOf(mimeType),
+            null
+        )
+
+        // ALWAYS return the POSIX filesystem path so File(path) works everywhere in Flutter!
+        return targetPath
     }
 }

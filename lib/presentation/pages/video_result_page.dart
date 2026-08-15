@@ -18,6 +18,8 @@ class VideoResultPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final downloadProvider = context.watch<DownloadProvider>();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 360;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -29,26 +31,28 @@ class VideoResultPage extends StatelessWidget {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+        padding: EdgeInsets.fromLTRB(isCompact ? 14 : 20, 8, isCompact ? 14 : 20, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 1. Embedded Video Player Preview
             Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 380),
+                constraints: BoxConstraints(
+                  maxHeight: screenWidth > 500 ? 420 : 360,
+                ),
                 child: VideoPreviewPlayer(
-                  videoUrl: video.videoUrl,
+                  videoUrl: video.bestVideoUrl,
                   thumbnailUrl: video.coverUrl,
                   title: video.title,
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // 2. Author Profile & Caption Card
+            // 2. Author Profile & Info Card
             GlassCard(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(isCompact ? 12 : 16),
               borderRadius: 18,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,14 +89,18 @@ class VideoResultPage extends StatelessWidget {
                           children: [
                             Text(
                               video.authorName.isNotEmpty ? video.authorName : video.authorUsername,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 15,
+                                fontSize: 14.5,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             Text(
                               '@${video.authorUsername}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: AppColors.textMuted,
                                 fontSize: 12,
@@ -109,7 +117,7 @@ class VideoResultPage extends StatelessWidget {
                         ),
                         child: Text(
                           Formatters.formatDuration(video.durationSeconds),
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                          style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -141,9 +149,9 @@ class VideoResultPage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
 
-            // 3. Download Section Header
+            // 3. Download Options Header
             const Text(
               'Opsi Unduhan',
               style: TextStyle(
@@ -156,7 +164,6 @@ class VideoResultPage extends StatelessWidget {
             const SizedBox(height: 12),
 
             // 4. Download Buttons
-            // Button A: HD MP4 No-Watermark
             if (video.hasHd) ...[
               GlassButton(
                 text: 'Unduh Video MP4 (Full HD)',
@@ -177,7 +184,6 @@ class VideoResultPage extends StatelessWidget {
               const SizedBox(height: 10),
             ],
 
-            // Button B: Standard MP4
             GlassButton(
               text: 'Unduh Video MP4 (No Watermark)',
               icon: Icons.download_rounded,
@@ -197,7 +203,6 @@ class VideoResultPage extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // Button C: Audio MP3
             if (video.hasAudio)
               GlassButton(
                 text: 'Unduh Audio MP3 (Musik)',

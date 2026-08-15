@@ -24,6 +24,8 @@ class DownloadEngine {
                 connectTimeout: ApiConstants.connectTimeout,
                 receiveTimeout: ApiConstants.downloadTimeout,
                 headers: ApiConstants.defaultHeaders,
+                followRedirects: true,
+                maxRedirects: 5,
               ),
             );
 
@@ -47,13 +49,23 @@ class DownloadEngine {
         tempFilePath,
         cancelToken: cancelToken,
         deleteOnError: true,
+        options: Options(
+          responseType: ResponseType.stream,
+          followRedirects: true,
+          maxRedirects: 5,
+          headers: {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Referer': 'https://www.tiktok.com/',
+          },
+        ),
         onReceiveProgress: (received, total) {
           if (total > 0) {
             final now = DateTime.now();
             final timeDiffMs = now.difference(lastTime).inMilliseconds;
 
             double speed = 0;
-            if (timeDiffMs >= 400) {
+            if (timeDiffMs >= 350) {
               final bytesDiff = received - lastReceivedBytes;
               speed = (bytesDiff / (timeDiffMs / 1000.0));
               lastReceivedBytes = received;
@@ -66,25 +78,30 @@ class DownloadEngine {
         },
       );
 
-      if (response.statusCode == 200) {
-        // Rename .tmp to final target file path
+      if (response.statusCode == 200 || response.statusCode == 206) {
         final tempFile = File(tempFilePath);
-        if (await tempFile.exists()) {
+        if (await tempFile.exists() && (await tempFile.length()) > 500) {
           final targetFile = await tempFile.rename(item.filePath);
 
-          // Save to device gallery if MP4 video or audio
+          // Save to device gallery / MediaStore if enabled
+          String savedResultPath = targetFile.path;
           if (autoSaveToGallery) {
-            await MediaStorageService.saveToDeviceGallery(
-              filePath: targetFile.path,
-              isVideo: item.isVideo,
-              title: item.title,
-            );
+            try {
+              final galleryPath = await MediaStorageService.saveToDeviceGallery(
+                filePath: targetFile.path,
+                isVideo: item.isVideo,
+                title: item.title,
+              );
+              if (galleryPath.isNotEmpty) {
+                savedResultPath = galleryPath;
+              }
+            } catch (_) {}
           }
 
           _cancelTokens.remove(item.id);
-          return targetFile.path;
+          return savedResultPath;
         } else {
-          throw const StorageException('File hasil download tidak ditemukan di penyimpanan.');
+          throw const StorageException('Ukuran file unduhan tidak valid.');
         }
       } else {
         throw DownloadException('Server mengembalikan kode status: ${response.statusCode}');
@@ -94,14 +111,14 @@ class DownloadEngine {
       await MediaStorageService.deleteFile(tempFilePath);
 
       if (CancelToken.isCancel(e)) {
-        throw const DownloadException('Pengunduhan dibatalkan oleh pengguna.');
+        throw const DownloadException('Pengunduhan dibatalkan.');
       }
-      throw DownloadException('Gagal mengunduh file: ${e.message}');
+      throw DownloadException('Gagal mengunduh: ${e.message}');
     } catch (e) {
       _cancelTokens.remove(item.id);
       await MediaStorageService.deleteFile(tempFilePath);
       if (e is AppException) rethrow;
-      throw DownloadException('Terjadi kendala saat download: ${e.toString()}');
+      throw DownloadException('Kendala unduhan: ${e.toString()}');
     }
   }
 

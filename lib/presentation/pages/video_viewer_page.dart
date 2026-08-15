@@ -2,7 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/formatters.dart';
+import '../widgets/custom_toast.dart';
 
 class VideoViewerPage extends StatefulWidget {
   final String videoUrl;
@@ -23,21 +27,17 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
   bool _isInitialized = false;
   bool _hasError = false;
   bool _showControls = true;
-  double _playbackSpeed = 1.0;
+  bool _isMuted = false;
 
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _initializePlayer();
   }
 
   Future<void> _initializePlayer() async {
     try {
-      final isLocal = !widget.videoUrl.startsWith('http');
-      if (isLocal) {
-        _controller = VideoPlayerController.file(File(widget.videoUrl));
-      } else {
+      if (widget.videoUrl.startsWith('http://') || widget.videoUrl.startsWith('https://')) {
         _controller = VideoPlayerController.networkUrl(
           Uri.parse(widget.videoUrl),
           httpHeaders: {
@@ -46,15 +46,15 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
             'Referer': 'https://www.tiktok.com/',
           },
         );
+      } else {
+        _controller = VideoPlayerController.file(File(widget.videoUrl));
       }
 
-      await _controller!.initialize();
-      _controller!.setLooping(true);
-      _controller!.play();
-
+      await _controller!.initialize().timeout(const Duration(seconds: 15));
       _controller!.addListener(() {
         if (mounted) setState(() {});
       });
+      _controller!.play();
 
       if (mounted) {
         setState(() {
@@ -74,100 +74,136 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
 
   void _togglePlayPause() {
     if (_controller == null || !_isInitialized) return;
-    if (_controller!.value.isPlaying) {
-      _controller!.pause();
+    setState(() {
+      if (_controller!.value.isPlaying) {
+        _controller!.pause();
+      } else {
+        _controller!.play();
+      }
+    });
+  }
+
+  void _seekRelative(int seconds) {
+    if (_controller == null || !_isInitialized) return;
+    final current = _controller!.value.position;
+    final target = current + Duration(seconds: seconds);
+    _controller!.seekTo(target);
+  }
+
+  void _toggleMute() {
+    if (_controller == null || !_isInitialized) return;
+    setState(() {
+      _isMuted = !_isMuted;
+      _controller!.setVolume(_isMuted ? 0.0 : 1.0);
+    });
+  }
+
+  void _openInExternalPlayer() {
+    if (!widget.videoUrl.startsWith('http')) {
+      OpenFilex.open(widget.videoUrl).then((result) {
+        if (result.type != ResultType.done && mounted) {
+          CustomToast.showInfo(context, 'Membuka di pemutar video eksternal...');
+        }
+      });
     } else {
-      _controller!.play();
+      CustomToast.showInfo(context, 'Unduh video terlebih dahulu untuk memutar di aplikasi galeri.');
     }
   }
 
-  void _cycleSpeed() {
-    if (_controller == null) return;
-    final speeds = [1.0, 1.25, 1.5, 2.0, 0.5];
-    final currentIndex = speeds.indexOf(_playbackSpeed);
-    final nextSpeed = speeds[(currentIndex + 1) % speeds.length];
-    _controller!.setPlaybackSpeed(nextSpeed);
-    setState(() => _playbackSpeed = nextSpeed);
-  }
-
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$seconds';
+  void _shareMedia() {
+    if (!widget.videoUrl.startsWith('http') && File(widget.videoUrl).existsSync()) {
+      Share.shareXFiles([XFile(widget.videoUrl)], text: widget.title);
+    }
   }
 
   @override
   void dispose() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final position = _controller?.value.position ?? Duration.zero;
-    final duration = _controller?.value.duration ?? Duration.zero;
-    final isPlaying = _controller?.value.isPlaying ?? false;
+    final isLocal = !widget.videoUrl.startsWith('http');
+    final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: () => setState(() => _showControls = !_showControls),
-        behavior: HitTestBehavior.opaque,
+      body: SafeArea(
         child: Stack(
-          alignment: Alignment.center,
           children: [
-            // 1. Fullscreen Video Surface
-            if (_isInitialized && _controller != null)
-              Center(
-                child: AspectRatio(
-                  aspectRatio: _controller!.value.aspectRatio,
-                  child: VideoPlayer(_controller!),
-                ),
-              ),
-
-            // 2. Loading State
-            if (!_isInitialized && !_hasError)
-              const Center(
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-              ),
-
-            // 3. Error State
-            if (_hasError)
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 48),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Gagal memutar video',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            // 1. Center Video Surface or Error Display
+            Center(
+              child: _isInitialized && _controller != null && !_hasError
+                  ? GestureDetector(
+                      onTap: () => setState(() => _showControls = !_showControls),
+                      child: AspectRatio(
+                        aspectRatio: _controller!.value.aspectRatio > 0
+                            ? _controller!.value.aspectRatio
+                            : (9 / 16),
+                        child: VideoPlayer(_controller!),
                       ),
-                      onPressed: _initializePlayer,
-                      child: const Text('Coba Lagi'),
-                    ),
-                  ],
-                ),
-              ),
+                    )
+                  : _hasError
+                      ? Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.error_outline_rounded, color: Colors.white70, size: 48),
+                              const SizedBox(height: 14),
+                              const Text(
+                                'Gagal memuat video di pemutar internal.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Anda dapat membuka langsung menggunakan pemutar bawaan HP atau memutar ulang.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                              ),
+                              const SizedBox(height: 20),
+                              if (isLocal)
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                                  ),
+                                  onPressed: _openInExternalPlayer,
+                                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                                  label: const Text('Buka di Pemutar HP', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                              const SizedBox(height: 10),
+                              TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _hasError = false;
+                                    _isInitialized = false;
+                                  });
+                                  _initializePlayer();
+                                },
+                                icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 18),
+                                label: const Text('Coba Lagi', style: TextStyle(color: Colors.white)),
+                              ),
+                            ],
+                          ),
+                        )
+                      : const Center(
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                        ),
+            ),
 
-            // 4. Monochrome Controls Overlay
-            if (_showControls) ...[
-              // Top Bar
+            // 2. Top Navigation Bar
+            if (_showControls || _hasError)
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [Colors.black.withOpacity(0.8), Colors.transparent],
@@ -184,64 +220,75 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          widget.title,
+                          widget.title.isNotEmpty ? widget.title : 'Video TikTok',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
                         ),
                       ),
-                      TextButton(
-                        onPressed: _cycleSpeed,
-                        style: TextButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.15),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      if (isLocal) ...[
+                        IconButton(
+                          icon: const Icon(Icons.share_rounded, color: Colors.white, size: 20),
+                          tooltip: 'Bagikan',
+                          onPressed: _shareMedia,
                         ),
-                        child: Text(
-                          '${_playbackSpeed}x',
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                        IconButton(
+                          icon: const Icon(Icons.open_in_new_rounded, color: Colors.white, size: 20),
+                          tooltip: 'Buka di Pemutar HP',
+                          onPressed: _openInExternalPlayer,
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
               ),
 
-              // Center Play/Pause Button
-              if (_isInitialized)
-                Center(
-                  child: GestureDetector(
-                    onTap: _togglePlayPause,
-                    child: Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.55),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
-                      ),
-                      child: Icon(
-                        isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        color: Colors.white,
-                        size: 44,
+            // 3. Center Play/Pause & Quick Seek Overlay
+            if (_showControls && _isInitialized && _controller != null)
+              Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.replay_10_rounded, color: Colors.white70, size: 36),
+                      onPressed: () => _seekRelative(-10),
+                    ),
+                    const SizedBox(width: 24),
+                    GestureDetector(
+                      onTap: _togglePlayPause,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _controller!.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 40,
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 24),
+                    IconButton(
+                      icon: const Icon(Icons.forward_10_rounded, color: Colors.white70, size: 36),
+                      onPressed: () => _seekRelative(10),
+                    ),
+                  ],
                 ),
+              ),
 
-              // Bottom Progress Bar & Time
+            // 4. Bottom Playback Controls
+            if (_showControls && _isInitialized && _controller != null)
               Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.transparent, Colors.black.withOpacity(0.85)],
+                      colors: [Colors.transparent, Colors.black.withOpacity(0.9)],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
@@ -249,34 +296,34 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (_isInitialized && _controller != null)
-                        SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            thumbColor: Colors.white,
-                            activeTrackColor: Colors.white,
-                            inactiveTrackColor: Colors.white.withOpacity(0.2),
-                            trackHeight: 3.0,
-                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                          ),
-                          child: Slider(
-                            value: position.inMilliseconds.clamp(0, duration.inMilliseconds).toDouble(),
-                            min: 0,
-                            max: duration.inMilliseconds.toDouble() > 0 ? duration.inMilliseconds.toDouble() : 1.0,
-                            onChanged: (value) {
-                              _controller!.seekTo(Duration(milliseconds: value.toInt()));
-                            },
-                          ),
+                      // Seek bar
+                      VideoProgressIndicator(
+                        _controller!,
+                        allowScrubbing: true,
+                        colors: const VideoProgressColors(
+                          playedColor: Colors.white,
+                          bufferedColor: Colors.white30,
+                          backgroundColor: Colors.white12,
                         ),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      const SizedBox(height: 4),
+                      // Time display & Mute toggle
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            _formatDuration(position),
+                            '${Formatters.formatDuration(_controller!.value.position.inSeconds)} / ${Formatters.formatDuration(_controller!.value.duration.inSeconds)}',
                             style: const TextStyle(color: Colors.white70, fontSize: 12),
                           ),
-                          Text(
-                            _formatDuration(duration),
-                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: Icon(_isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                                    color: Colors.white, size: 20),
+                                onPressed: _toggleMute,
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -284,7 +331,6 @@ class _VideoViewerPageState extends State<VideoViewerPage> {
                   ),
                 ),
               ),
-            ],
           ],
         ),
       ),
