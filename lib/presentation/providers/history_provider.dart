@@ -4,7 +4,7 @@ import '../../domain/usecases/get_history_usecase.dart';
 import '../../domain/usecases/delete_history_usecase.dart';
 import '../../services/media_storage_service.dart';
 
-enum HistoryFilter { all, video, audio }
+enum HistoryFilter { all, video, photos, audio }
 
 class HistoryProvider extends ChangeNotifier {
   final GetHistoryUseCase _getHistoryUseCase;
@@ -32,11 +32,10 @@ class HistoryProvider extends ChangeNotifier {
 
   List<DownloadItem> get filteredItems {
     return _items.where((item) {
-      // 1. Filter Type
       if (_selectedFilter == HistoryFilter.video && !item.isVideo) return false;
-      if (_selectedFilter == HistoryFilter.audio && item.isVideo) return false;
+      if (_selectedFilter == HistoryFilter.photos && !item.isPhotos) return false;
+      if (_selectedFilter == HistoryFilter.audio && !item.isAudio) return false;
 
-      // 2. Search Query
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         final matchTitle = item.title.toLowerCase().contains(query);

@@ -89,7 +89,7 @@ class TikTokDownloaderApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'TikTok Downloader Pro',
+      title: 'MyDownloader Pro',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: const MainNavigationPage(),

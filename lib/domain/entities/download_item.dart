@@ -9,6 +9,7 @@ enum DownloadStatus {
 enum DownloadType {
   video,
   audio,
+  photos,
 }
 
 class DownloadItem {
@@ -25,6 +26,7 @@ class DownloadItem {
   final double progress; // 0.0 to 1.0
   final DownloadStatus status;
   final String? errorMessage;
+  final int mediaCount;
   final DateTime createdAt;
 
   const DownloadItem({
@@ -41,6 +43,7 @@ class DownloadItem {
     required this.progress,
     required this.status,
     this.errorMessage,
+    this.mediaCount = 1,
     required this.createdAt,
   });
 
@@ -49,6 +52,7 @@ class DownloadItem {
   bool get isFailed => status == DownloadStatus.failed;
   bool get isVideo => type == DownloadType.video;
   bool get isAudio => type == DownloadType.audio;
+  bool get isPhotos => type == DownloadType.photos;
 
   DownloadItem copyWith({
     String? id,
@@ -64,6 +68,7 @@ class DownloadItem {
     double? progress,
     DownloadStatus? status,
     String? errorMessage,
+    int? mediaCount,
     DateTime? createdAt,
   }) {
     return DownloadItem(
@@ -80,6 +85,7 @@ class DownloadItem {
       progress: progress ?? this.progress,
       status: status ?? this.status,
       errorMessage: errorMessage ?? this.errorMessage,
+      mediaCount: mediaCount ?? this.mediaCount,
       createdAt: createdAt ?? this.createdAt,
     );
   }

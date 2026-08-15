@@ -15,6 +15,7 @@ class DownloadItemModel extends DownloadItem {
     required super.progress,
     required super.status,
     super.errorMessage,
+    super.mediaCount = 1,
     required super.createdAt,
   });
 
@@ -33,25 +34,33 @@ class DownloadItemModel extends DownloadItem {
       progress: item.progress,
       status: item.status,
       errorMessage: item.errorMessage,
+      mediaCount: item.mediaCount,
       createdAt: item.createdAt,
     );
   }
 
   factory DownloadItemModel.fromJson(Map<String, dynamic> json) {
+    DownloadType parseType(String? t) {
+      if (t == 'audio') return DownloadType.audio;
+      if (t == 'photos' || t == 'slides') return DownloadType.photos;
+      return DownloadType.video;
+    }
+
     return DownloadItemModel(
       id: json['id'] as String? ?? '',
-      title: json['title'] as String? ?? 'TikTok Download',
-      author: json['author'] as String? ?? '@tiktok_user',
+      title: json['title'] as String? ?? 'MyDownloader Media',
+      author: json['author'] as String? ?? '@creator',
       thumbnailUrl: json['thumbnailUrl'] as String? ?? '',
       sourceUrl: json['sourceUrl'] as String? ?? '',
       downloadUrl: json['downloadUrl'] as String? ?? '',
       filePath: json['filePath'] as String? ?? '',
-      type: (json['type'] == 'audio') ? DownloadType.audio : DownloadType.video,
+      type: parseType(json['type'] as String?),
       totalBytes: (json['totalBytes'] as num?)?.toInt() ?? 0,
       downloadedBytes: (json['downloadedBytes'] as num?)?.toInt() ?? 0,
       progress: (json['progress'] as num?)?.toDouble() ?? 1.0,
       status: _statusFromString(json['status'] as String?),
       errorMessage: json['errorMessage'] as String?,
+      mediaCount: (json['mediaCount'] as num?)?.toInt() ?? 1,
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
           : DateTime.now(),
@@ -59,6 +68,12 @@ class DownloadItemModel extends DownloadItem {
   }
 
   Map<String, dynamic> toJson() {
+    String typeString() {
+      if (type == DownloadType.audio) return 'audio';
+      if (type == DownloadType.photos) return 'photos';
+      return 'video';
+    }
+
     return {
       'id': id,
       'title': title,
@@ -67,12 +82,13 @@ class DownloadItemModel extends DownloadItem {
       'sourceUrl': sourceUrl,
       'downloadUrl': downloadUrl,
       'filePath': filePath,
-      'type': type == DownloadType.audio ? 'audio' : 'video',
+      'type': typeString(),
       'totalBytes': totalBytes,
       'downloadedBytes': downloadedBytes,
       'progress': progress,
       'status': status.name,
       'errorMessage': errorMessage,
+      'mediaCount': mediaCount,
       'createdAt': createdAt.toIso8601String(),
     };
   }

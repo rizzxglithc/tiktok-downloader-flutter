@@ -48,20 +48,18 @@ class DownloadProvider extends ChangeNotifier {
 
   List<ActiveDownloadState> get activeDownloads => _activeDownloads.values.toList();
   bool get hasActiveDownloads => _activeDownloads.isNotEmpty;
+  int get activeCount => _activeDownloads.length;
 
   ActiveDownloadState? getDownload(String id) => _activeDownloads[id];
 
+  /// Download Video or Audio Media
   Future<bool> startDownload({
     required TikTokVideo video,
     required bool isVideo,
     required bool isHd,
     required BuildContext context,
   }) async {
-    // 1. Request Media Permissions
-    final hasPermission = await MediaStorageService.requestStoragePermission();
-    if (!hasPermission && !kIsWeb) {
-      // Proceed with Scoped Storage
-    }
+    await MediaStorageService.requestStoragePermission();
 
     final downloadUrl = isVideo
         ? (isHd && video.hasHd ? video.videoHdUrl! : video.videoUrl)
@@ -69,11 +67,11 @@ class DownloadProvider extends ChangeNotifier {
 
     if (downloadUrl.isEmpty) return false;
 
-    // 2. Generate local file path
     final downloadPath = await MediaStorageService.generateFilePath(
       id: video.id,
       title: video.title,
-      isVideo: isVideo,
+      ext: isVideo ? 'mp4' : 'mp3',
+      subFolder: isVideo ? 'videos' : 'audios',
     );
 
     final downloadId = '${video.id}_${isVideo ? (isHd ? "hd" : "sd") : "mp3"}';
@@ -84,7 +82,7 @@ class DownloadProvider extends ChangeNotifier {
 
     final downloadItem = DownloadItem(
       id: downloadId,
-      title: video.title.isNotEmpty ? video.title : 'TikTok ${isVideo ? "Video" : "Audio"}',
+      title: video.title.isNotEmpty ? video.title : 'MyDownloader ${isVideo ? "Video" : "Audio"}',
       author: video.authorName.isNotEmpty ? video.authorName : '@${video.authorUsername}',
       thumbnailUrl: video.coverUrl,
       sourceUrl: video.url,
@@ -102,7 +100,6 @@ class DownloadProvider extends ChangeNotifier {
     _activeDownloads[downloadId] = state;
     notifyListeners();
 
-    // 3. Launch async streaming download
     _downloadEngine.startDownload(
       item: downloadItem,
       onProgress: (id, received, total, progress, speed) {
@@ -116,7 +113,6 @@ class DownloadProvider extends ChangeNotifier {
         }
       },
     ).then((finalPath) async {
-      // Completed successfully
       final completedItem = downloadItem.copyWith(
         filePath: finalPath,
         status: DownloadStatus.completed,
@@ -124,7 +120,77 @@ class DownloadProvider extends ChangeNotifier {
       );
 
       await _saveHistoryUseCase.execute(completedItem);
+      _activeDownloads.remove(downloadId);
+      notifyListeners();
+      onDownloadCompleted?.call();
+    }).catchError((e) {
+      _activeDownloads.remove(downloadId);
+      notifyListeners();
+    });
 
+    return true;
+  }
+
+  /// Download TikTok or Instagram Photo Carousel (All Slides)
+  Future<bool> startPhotoSlidesDownload({
+    required TikTokVideo video,
+    required BuildContext context,
+  }) async {
+    if (video.images.isEmpty) return false;
+    await MediaStorageService.requestStoragePermission();
+
+    final downloadId = '${video.id}_slides';
+    if (_activeDownloads.containsKey(downloadId)) return false;
+
+    final firstThumb = video.images.first;
+    final downloadPath = await MediaStorageService.generateFilePath(
+      id: '${video.id}_slide_1',
+      title: '${video.title}_1',
+      ext: 'jpg',
+      subFolder: 'photos',
+    );
+
+    final downloadItem = DownloadItem(
+      id: downloadId,
+      title: '${video.title} (${video.images.length} Foto)',
+      author: video.authorName.isNotEmpty ? video.authorName : '@${video.authorUsername}',
+      thumbnailUrl: firstThumb,
+      sourceUrl: video.url,
+      downloadUrl: firstThumb,
+      filePath: downloadPath,
+      type: DownloadType.photos,
+      totalBytes: video.images.length * 500 * 1024,
+      downloadedBytes: 0,
+      progress: 0.0,
+      mediaCount: video.images.length,
+      status: DownloadStatus.downloading,
+      createdAt: DateTime.now(),
+    );
+
+    final state = ActiveDownloadState(item: downloadItem);
+    _activeDownloads[downloadId] = state;
+    notifyListeners();
+
+    _downloadEngine.downloadPhotoBatch(
+      id: downloadId,
+      title: video.title,
+      imageUrls: video.images,
+      onProgress: (index, total, progress) {
+        final current = _activeDownloads[downloadId];
+        if (current != null) {
+          current.progress = progress;
+          current.downloadedBytes = (progress * current.totalBytes).toInt();
+          notifyListeners();
+        }
+      },
+    ).then((savedPaths) async {
+      final completedItem = downloadItem.copyWith(
+        filePath: savedPaths.isNotEmpty ? savedPaths.first : downloadPath,
+        status: DownloadStatus.completed,
+        progress: 1.0,
+      );
+
+      await _saveHistoryUseCase.execute(completedItem);
       _activeDownloads.remove(downloadId);
       notifyListeners();
       onDownloadCompleted?.call();

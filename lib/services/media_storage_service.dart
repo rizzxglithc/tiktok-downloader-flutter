@@ -6,13 +6,14 @@ import 'package:permission_handler/permission_handler.dart';
 class MediaStorageService {
   static const MethodChannel _channel = MethodChannel('com.rizz.tiktok_downloader/media');
 
-  /// Request storage permission (optional on Android 10+ with scoped storage)
+  /// Request media permissions
   static Future<bool> requestStoragePermission() async {
     if (!Platform.isAndroid) return true;
 
     try {
       if (await Permission.videos.request().isGranted &&
-          await Permission.audio.request().isGranted) {
+          await Permission.audio.request().isGranted &&
+          await Permission.photos.request().isGranted) {
         return true;
       }
       final status = await Permission.storage.request();
@@ -25,26 +26,26 @@ class MediaStorageService {
   /// Get base media storage directory (reliable internal app storage)
   static Future<Directory> getDownloadDirectory() async {
     final appDir = await getApplicationDocumentsDirectory();
-    final tiktokDir = Directory('${appDir.path}/TikTok');
-    if (!await tiktokDir.exists()) {
-      await tiktokDir.create(recursive: true);
+    final mediaDir = Directory('${appDir.path}/MyDownloader');
+    if (!await mediaDir.exists()) {
+      await mediaDir.create(recursive: true);
     }
-    return tiktokDir;
+    return mediaDir;
   }
 
   /// Generate appropriate local save path for downloaded media
   static Future<String> generateFilePath({
     required String id,
     required String title,
-    required bool isVideo,
+    String ext = 'mp4',
+    String subFolder = 'videos',
   }) async {
     final cleanTitle = _sanitizeFileName(title);
-    final ext = isVideo ? 'mp4' : 'mp3';
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final fileName = '${cleanTitle.isNotEmpty ? cleanTitle : "tiktok_${id}"}_$timestamp.$ext';
+    final fileName = '${cleanTitle.isNotEmpty ? cleanTitle : "media_${id}"}_$timestamp.$ext';
 
     final baseDir = await getDownloadDirectory();
-    final mediaSubDir = Directory('${baseDir.path}/${isVideo ? "videos" : "audios"}');
+    final mediaSubDir = Directory('${baseDir.path}/$subFolder');
 
     if (!await mediaSubDir.exists()) {
       await mediaSubDir.create(recursive: true);
@@ -53,10 +54,10 @@ class MediaStorageService {
     return '${mediaSubDir.path}/$fileName';
   }
 
-  /// Save copy to Android MediaStore (Gallery / Music) via Kotlin Native Channel
+  /// Save copy to Android MediaStore (Gallery / Music / Pictures)
   static Future<String> saveToDeviceGallery({
     required String filePath,
-    required bool isVideo,
+    required String mediaType, // "video", "audio", "photo"
     required String title,
   }) async {
     if (!Platform.isAndroid) return filePath;
@@ -64,7 +65,7 @@ class MediaStorageService {
     try {
       final result = await _channel.invokeMethod<String>('saveToGallery', {
         'filePath': filePath,
-        'isVideo': isVideo,
+        'mediaType': mediaType,
         'title': _sanitizeFileName(title),
       });
       return result ?? filePath;

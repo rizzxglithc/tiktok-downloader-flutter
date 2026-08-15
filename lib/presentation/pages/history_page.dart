@@ -44,8 +44,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final exists = file.existsSync();
 
     if (!exists) {
-      // File was removed by user from file manager
-      CustomToast.showError(context, 'File fisik telah dipindahkan atau dihapus dari penyimpanan.');
+      CustomToast.showError(context, 'File fisik telah dipindahkan atau dibuka langsung lewat Galeri HP.');
       return;
     }
 
@@ -60,10 +59,9 @@ class _HistoryPageState extends State<HistoryPage> {
         ),
       );
     } else {
-      // Audio or External Launch
       OpenFilex.open(filePath).then((result) {
         if (result.type != ResultType.done && mounted) {
-          CustomToast.showInfo(context, 'Membuka audio: $title');
+          CustomToast.showInfo(context, 'Membuka media: $title');
         }
       });
     }
@@ -71,7 +69,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
   void _handleShare(String filePath, String title) {
     if (filePath.isNotEmpty && File(filePath).existsSync()) {
-      Share.shareXFiles([XFile(filePath)], text: 'Dibagikan via TikTok Downloader: $title');
+      Share.shareXFiles([XFile(filePath)], text: 'Dibagikan via MyDownloader: $title');
     } else {
       CustomToast.showError(context, 'File tidak ditemukan untuk dibagikan.');
     }
@@ -183,6 +181,12 @@ class _HistoryPageState extends State<HistoryPage> {
                       ),
                       const SizedBox(width: 8),
                       _buildFilterChip(
+                        label: 'Slide Foto',
+                        isSelected: historyProvider.selectedFilter == HistoryFilter.photos,
+                        onTap: () => historyProvider.setFilter(HistoryFilter.photos),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
                         label: 'Audio MP3',
                         isSelected: historyProvider.selectedFilter == HistoryFilter.audio,
                         onTap: () => historyProvider.setFilter(HistoryFilter.audio),
@@ -258,12 +262,16 @@ class _HistoryPageState extends State<HistoryPage> {
                                         item.thumbnailUrl,
                                         fit: BoxFit.cover,
                                         errorBuilder: (context, error, stackTrace) => Icon(
-                                          item.isVideo ? Icons.movie_outlined : Icons.audiotrack_rounded,
+                                          item.isPhotos
+                                              ? Icons.photo_library_rounded
+                                              : (item.isVideo ? Icons.movie_outlined : Icons.audiotrack_rounded),
                                           color: AppColors.textMuted,
                                         ),
                                       )
                                     : Icon(
-                                        item.isVideo ? Icons.movie_outlined : Icons.audiotrack_rounded,
+                                        item.isPhotos
+                                            ? Icons.photo_library_rounded
+                                            : (item.isVideo ? Icons.movie_outlined : Icons.audiotrack_rounded),
                                         color: AppColors.textMuted,
                                       ),
                               ),
@@ -276,7 +284,7 @@ class _HistoryPageState extends State<HistoryPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    item.title.isNotEmpty ? item.title : 'TikTok Download',
+                                    item.title.isNotEmpty ? item.title : 'MyDownloader Media',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -287,7 +295,9 @@ class _HistoryPageState extends State<HistoryPage> {
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
-                                    '${item.author} • ${Formatters.formatBytes(item.totalBytes)}',
+                                    item.isPhotos
+                                        ? '${item.mediaCount} Foto Tersimpan • Galeri'
+                                        : '${item.author} • ${Formatters.formatBytes(item.totalBytes)}',
                                     style: const TextStyle(color: AppColors.textMuted, fontSize: 11.5),
                                   ),
                                   const SizedBox(height: 2),
@@ -297,17 +307,17 @@ class _HistoryPageState extends State<HistoryPage> {
                                         Formatters.formatDate(item.createdAt),
                                         style: const TextStyle(color: AppColors.textDisabled, fontSize: 10.5),
                                       ),
-                                      if (!fileExists) ...[
+                                      if (!fileExists && !item.isPhotos) ...[
                                         const SizedBox(width: 6),
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                           decoration: BoxDecoration(
-                                            color: AppColors.error.withOpacity(0.15),
+                                            color: Colors.white10,
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: const Text(
-                                            'File dipindahkan',
-                                            style: TextStyle(color: AppColors.error, fontSize: 9.5, fontWeight: FontWeight.w600),
+                                            'Galeri HP',
+                                            style: TextStyle(color: Colors.white70, fontSize: 9.5, fontWeight: FontWeight.w600),
                                           ),
                                         ),
                                       ],

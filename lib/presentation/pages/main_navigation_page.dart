@@ -1,6 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../providers/download_provider.dart';
+import '../providers/history_provider.dart';
 import 'home_page.dart';
 import 'downloads_page.dart';
 import 'history_page.dart';
@@ -24,7 +27,24 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final downloadProvider = context.read<DownloadProvider>();
+      final historyProvider = context.read<HistoryProvider>();
+
+      // Automatically refresh history when any download completes
+      downloadProvider.onDownloadCompleted = () {
+        historyProvider.loadHistory();
+      };
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final downloadProvider = context.watch<DownloadProvider>();
+    final activeCount = downloadProvider.activeCount;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       extendBody: true,
@@ -32,41 +52,41 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         index: _currentIndex,
         children: _pages,
       ),
-      bottomNavigationBar: _buildFloatingBottomNav(),
+      bottomNavigationBar: _buildPremiumFloatingNavbar(activeCount),
     );
   }
 
-  Widget _buildFloatingBottomNav() {
+  Widget _buildPremiumFloatingNavbar(int activeCount) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
             child: Container(
-              height: 66,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              height: 68,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF121214).withOpacity(0.92),
-                borderRadius: BorderRadius.circular(24),
+                color: const Color(0xFF141416).withOpacity(0.92),
+                borderRadius: BorderRadius.circular(28),
                 border: Border.all(
-                  color: AppColors.border,
-                  width: 1.0,
+                  color: const Color(0xFF2A2A2E),
+                  width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+                    color: Colors.black.withOpacity(0.6),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
                   ),
                 ],
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildNavItem(0, Icons.home_filled, 'Beranda'),
-                  _buildNavItem(1, Icons.download_rounded, 'Unduhan'),
+                  _buildNavItem(0, Icons.home_rounded, 'Beranda'),
+                  _buildNavItem(1, Icons.download_rounded, 'Unduhan', badgeCount: activeCount),
                   _buildNavItem(2, Icons.history_rounded, 'Riwayat'),
                   _buildNavItem(3, Icons.settings_rounded, 'Setelan'),
                 ],
@@ -78,39 +98,83 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
+  Widget _buildNavItem(int index, IconData icon, String label, {int badgeCount = 0}) {
     final isSelected = _currentIndex == index;
 
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () {
+        setState(() => _currentIndex = index);
+        if (index == 2) {
+          context.read<HistoryProvider>().loadHistory();
+        }
+      },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withOpacity(0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: isSelected ? Border.all(color: Colors.white.withOpacity(0.15), width: 1) : null,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 16 : 12,
+          vertical: 10,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : AppColors.textMuted,
-              size: 22,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: isSelected ? Colors.black : AppColors.textMuted,
+                  size: 21,
+                ),
+                if (isSelected) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+              ],
             ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+            if (badgeCount > 0 && !isSelected)
+              Positioned(
+                top: -4,
+                right: -6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$badgeCount',
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
-            ],
           ],
         ),
       ),

@@ -13,6 +13,7 @@ class TikTokVideoModel extends TikTokVideo {
     required super.videoUrl,
     super.videoHdUrl,
     super.audioUrl,
+    super.images = const [],
     required super.durationSeconds,
     required super.width,
     required super.height,
@@ -22,29 +23,46 @@ class TikTokVideoModel extends TikTokVideo {
     required super.commentsCount,
     required super.sharesCount,
     required super.createdAt,
+    super.platform = MediaPlatform.tiktok,
+    super.contentType = MediaContentType.video,
   });
 
-  /// Robust JSON parser supporting TikWM format with fallbacks
+  /// Robust JSON parser supporting TikWM format (videos & photo slides)
   factory TikTokVideoModel.fromTikWmJson(Map<String, dynamic> json, String originalUrl) {
     final data = json['data'] as Map<String, dynamic>? ?? json;
-
     final author = data['author'] as Map<String, dynamic>? ?? {};
 
     // ID
     final id = (data['id'] ?? data['video_id'] ?? DateTime.now().millisecondsSinceEpoch).toString();
 
     // Title / Caption
-    final title = (data['title'] ?? data['desc'] ?? 'TikTok Video').toString();
+    final title = (data['title'] ?? data['desc'] ?? 'TikTok Post').toString();
 
     // Author
     final authorName = (author['nickname'] ?? author['name'] ?? 'TikTok Creator').toString();
     final authorUsername = (author['unique_id'] ?? author['username'] ?? 'tiktok_user').toString();
     final authorAvatar = (author['avatar'] ?? author['avatar_thumb'] ?? '').toString();
 
+    // Photos / Slide Carousel Check
+    final List<String> imagesList = [];
+    if (data['images'] is List) {
+      for (final img in (data['images'] as List)) {
+        if (img != null) {
+          String imgUrl = img.toString();
+          if (imgUrl.isNotEmpty && !imgUrl.startsWith('http')) {
+            imgUrl = 'https://www.tikwm.com$imgUrl';
+          }
+          imagesList.add(imgUrl);
+        }
+      }
+    }
+
+    final isPhotoSlide = imagesList.isNotEmpty;
+
     // Media URLs
-    final coverUrl = (data['cover'] ?? data['origin_cover'] ?? '').toString();
+    final coverUrl = (data['cover'] ?? data['origin_cover'] ?? (imagesList.isNotEmpty ? imagesList.first : '')).toString();
     final dynamicCoverUrl = (data['dynamic_cover'] ?? coverUrl).toString();
-    
+
     // Play URL (No watermark)
     String videoUrl = (data['play'] ?? data['wmplay'] ?? data['video_url'] ?? '').toString();
     if (videoUrl.isNotEmpty && !videoUrl.startsWith('http')) {
@@ -80,7 +98,7 @@ class TikTokVideoModel extends TikTokVideo {
     return TikTokVideoModel(
       id: id,
       url: originalUrl,
-      title: title.isEmpty ? 'TikTok Video #$id' : title,
+      title: title.isEmpty ? 'TikTok Post #$id' : title,
       authorName: authorName,
       authorUsername: authorUsername.startsWith('@') ? authorUsername : '@$authorUsername',
       authorAvatar: authorAvatar,
@@ -89,6 +107,7 @@ class TikTokVideoModel extends TikTokVideo {
       videoUrl: videoUrl,
       videoHdUrl: videoHdUrl,
       audioUrl: audioUrl,
+      images: imagesList,
       durationSeconds: duration,
       width: width,
       height: height,
@@ -98,6 +117,47 @@ class TikTokVideoModel extends TikTokVideo {
       commentsCount: comments,
       sharesCount: shares,
       createdAt: createdTime,
+      platform: MediaPlatform.tiktok,
+      contentType: isPhotoSlide ? MediaContentType.photos : MediaContentType.video,
+    );
+  }
+
+  /// Parser for Instagram media responses (Reels, Single Post, Carousel)
+  factory TikTokVideoModel.fromInstagramData({
+    required String id,
+    required String originalUrl,
+    required String title,
+    required String authorName,
+    required String authorUsername,
+    required String authorAvatar,
+    required String coverUrl,
+    required String videoUrl,
+    List<String> images = const [],
+    bool isVideo = true,
+  }) {
+    return TikTokVideoModel(
+      id: id,
+      url: originalUrl,
+      title: title.isNotEmpty ? title : 'Instagram Post',
+      authorName: authorName.isNotEmpty ? authorName : 'Instagram User',
+      authorUsername: authorUsername.startsWith('@') ? authorUsername : '@$authorUsername',
+      authorAvatar: authorAvatar,
+      coverUrl: coverUrl,
+      dynamicCoverUrl: coverUrl,
+      videoUrl: videoUrl,
+      videoHdUrl: videoUrl,
+      images: images,
+      durationSeconds: 0,
+      width: 1080,
+      height: 1920,
+      fileSize: 0,
+      viewsCount: 0,
+      likesCount: 0,
+      commentsCount: 0,
+      sharesCount: 0,
+      createdAt: DateTime.now(),
+      platform: MediaPlatform.instagram,
+      contentType: isVideo ? MediaContentType.video : MediaContentType.photos,
     );
   }
 }

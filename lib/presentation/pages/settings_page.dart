@@ -56,7 +56,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       'assets/app_logo.png',
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => const Icon(
-                        Icons.play_circle_fill_rounded,
+                        Icons.download_rounded,
                         color: Colors.white,
                         size: 30,
                       ),
@@ -68,7 +68,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'TikTok Downloader Pro',
+                          'MyDownloader Pro',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -77,7 +77,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Versi 1.0.0 (Release Build)',
+                          'Versi 1.1.0 (Universal Multi-Platform & Slides)',
                           style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                         ),
                       ],
@@ -198,7 +198,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                     subtitle: const Text(
-                      'Prioritaskan stream video resolusi tertinggi saat tersedia',
+                      'Prioritaskan media resolusi tertinggi saat tersedia',
                       style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                     ),
                     value: settings.hdByDefault,
@@ -222,7 +222,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Aplikasi ini tidak berafiliasi resmi dengan TikTok atau ByteDance. Gunakan untuk kebutuhan pengunduhan media pribadi yang sah.',
+                      'MyDownloader adalah aplikasi utilitas independen dan tidak berafiliasi resmi dengan TikTok, Instagram, atau Meta. Gunakan untuk kebutuhan pengunduhan media pribadi yang sah.',
                       style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.4),
                     ),
                   ),

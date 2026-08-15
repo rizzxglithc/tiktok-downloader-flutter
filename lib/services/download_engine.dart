@@ -29,7 +29,7 @@ class DownloadEngine {
               ),
             );
 
-  /// Start streaming download to disk
+  /// Start streaming download to disk (Single Media File)
   Future<String> startDownload({
     required DownloadItem item,
     required OnDownloadProgressCallback onProgress,
@@ -83,13 +83,17 @@ class DownloadEngine {
         if (await tempFile.exists() && (await tempFile.length()) > 500) {
           final targetFile = await tempFile.rename(item.filePath);
 
-          // Save to device gallery / MediaStore if enabled
+          // Save to device gallery / MediaStore
           String savedResultPath = targetFile.path;
           if (autoSaveToGallery) {
             try {
+              final mediaType = item.isPhotos
+                  ? "photo"
+                  : (item.isAudio ? "audio" : "video");
+
               final galleryPath = await MediaStorageService.saveToDeviceGallery(
                 filePath: targetFile.path,
-                isVideo: item.isVideo,
+                mediaType: mediaType,
                 title: item.title,
               );
               if (galleryPath.isNotEmpty) {
@@ -120,6 +124,61 @@ class DownloadEngine {
       if (e is AppException) rethrow;
       throw DownloadException('Kendala unduhan: ${e.toString()}');
     }
+  }
+
+  /// Download multiple photos / carousel images in batch
+  Future<List<String>> downloadPhotoBatch({
+    required String id,
+    required String title,
+    required List<String> imageUrls,
+    required void Function(int index, int total, double progress) onProgress,
+  }) async {
+    final cancelToken = CancelToken();
+    _cancelTokens[id] = cancelToken;
+
+    final List<String> savedPaths = [];
+    int completed = 0;
+
+    for (int i = 0; i < imageUrls.length; i++) {
+      if (cancelToken.isCancelled) break;
+
+      final url = imageUrls[i];
+      final filePath = await MediaStorageService.generateFilePath(
+        id: '${id}_slide_${i + 1}',
+        title: '${title}_${i + 1}',
+        ext: 'jpg',
+        subFolder: 'photos',
+      );
+
+      try {
+        final res = await _dio.download(
+          url,
+          filePath,
+          cancelToken: cancelToken,
+          options: Options(
+            headers: {
+              'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
+          ),
+        );
+
+        if (res.statusCode == 200) {
+          await MediaStorageService.saveToDeviceGallery(
+            filePath: filePath,
+            mediaType: 'photo',
+            title: '${title}_${i + 1}',
+          );
+          savedPaths.add(filePath);
+        }
+      } catch (_) {}
+
+      completed++;
+      onProgress(completed, imageUrls.length, completed / imageUrls.length);
+    }
+
+    _cancelTokens.remove(id);
+    return savedPaths;
   }
 
   /// Cancel an ongoing download

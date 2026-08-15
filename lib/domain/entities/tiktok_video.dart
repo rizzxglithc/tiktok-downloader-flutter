@@ -1,3 +1,14 @@
+enum MediaPlatform {
+  tiktok,
+  instagram,
+}
+
+enum MediaContentType {
+  video,
+  photos,
+  audio,
+}
+
 class TikTokVideo {
   final String id;
   final String url;
@@ -10,6 +21,7 @@ class TikTokVideo {
   final String videoUrl;
   final String? videoHdUrl;
   final String? audioUrl;
+  final List<String> images;
   final int durationSeconds;
   final int width;
   final int height;
@@ -19,6 +31,8 @@ class TikTokVideo {
   final int commentsCount;
   final int sharesCount;
   final DateTime createdAt;
+  final MediaPlatform platform;
+  final MediaContentType contentType;
 
   const TikTokVideo({
     required this.id,
@@ -32,6 +46,7 @@ class TikTokVideo {
     required this.videoUrl,
     this.videoHdUrl,
     this.audioUrl,
+    this.images = const [],
     required this.durationSeconds,
     required this.width,
     required this.height,
@@ -41,9 +56,12 @@ class TikTokVideo {
     required this.commentsCount,
     required this.sharesCount,
     required this.createdAt,
+    this.platform = MediaPlatform.tiktok,
+    this.contentType = MediaContentType.video,
   });
 
   String get bestVideoUrl => videoHdUrl?.isNotEmpty == true ? videoHdUrl! : videoUrl;
   bool get hasAudio => audioUrl != null && audioUrl!.isNotEmpty;
   bool get hasHd => videoHdUrl != null && videoHdUrl!.isNotEmpty;
+  bool get isSlide => images.isNotEmpty || contentType == MediaContentType.photos;
 }

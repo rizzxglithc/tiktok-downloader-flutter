@@ -10,21 +10,38 @@ import '../widgets/glass_card.dart';
 import '../widgets/video_preview_player.dart';
 import '../widgets/custom_toast.dart';
 
-class VideoResultPage extends StatelessWidget {
+class VideoResultPage extends StatefulWidget {
   final TikTokVideo video;
 
   const VideoResultPage({super.key, required this.video});
+
+  @override
+  State<VideoResultPage> createState() => _VideoResultPageState();
+}
+
+class _VideoResultPageState extends State<VideoResultPage> {
+  int _currentSlideIndex = 0;
+  final PageController _pageController = PageController();
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final downloadProvider = context.watch<DownloadProvider>();
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 360;
+    final video = widget.video;
+    final isSlide = video.isSlide && video.images.isNotEmpty;
+    final isInstagram = video.platform == MediaPlatform.instagram;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Detail Video'),
+        title: Text(isSlide ? 'Detail Slide Foto' : 'Detail Media'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
           onPressed: () => Navigator.pop(context),
@@ -35,22 +52,26 @@ class VideoResultPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Embedded Video Player Preview
-            Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: screenWidth > 500 ? 420 : 360,
-                ),
-                child: VideoPreviewPlayer(
-                  videoUrl: video.bestVideoUrl,
-                  thumbnailUrl: video.coverUrl,
-                  title: video.title,
+            // 1. Media Preview Area: Photo Slide Carousel or Video Player
+            if (isSlide)
+              _buildPhotoCarousel(screenWidth)
+            else
+              Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: screenWidth > 500 ? 420 : 360,
+                  ),
+                  child: VideoPreviewPlayer(
+                    videoUrl: video.bestVideoUrl,
+                    thumbnailUrl: video.coverUrl,
+                    title: video.title,
+                  ),
                 ),
               ),
-            ),
+
             const SizedBox(height: 18),
 
-            // 2. Author Profile & Info Card
+            // 2. Author Profile & Metadata Card
             GlassCard(
               padding: EdgeInsets.all(isCompact ? 12 : 16),
               borderRadius: 18,
@@ -87,18 +108,36 @@ class VideoResultPage extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              video.authorName.isNotEmpty ? video.authorName : video.authorUsername,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    video.authorName.isNotEmpty ? video.authorName : video.authorUsername,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isInstagram ? Colors.white12 : Colors.white24,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    isInstagram ? 'Instagram' : 'TikTok',
+                                    style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
                             ),
                             Text(
-                              '@${video.authorUsername}',
+                              video.authorUsername,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -109,17 +148,30 @@ class VideoResultPage extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(12),
+                      if (isSlide)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${video.images.length} Foto',
+                            style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
+                          ),
+                        )
+                      else if (video.durationSeconds > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            Formatters.formatDuration(video.durationSeconds),
+                            style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
+                          ),
                         ),
-                        child: Text(
-                          Formatters.formatDuration(video.durationSeconds),
-                          style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
-                        ),
-                      ),
                     ],
                   ),
                   if (video.title.isNotEmpty) ...[
@@ -135,23 +187,24 @@ class VideoResultPage extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 14),
-                  // Metrics Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildMetric(Icons.favorite_rounded, Formatters.formatCompactNumber(video.likesCount)),
-                      _buildMetric(Icons.chat_bubble_rounded, Formatters.formatCompactNumber(video.commentsCount)),
-                      _buildMetric(Icons.share_rounded, Formatters.formatCompactNumber(video.sharesCount)),
-                      _buildMetric(Icons.play_arrow_rounded, Formatters.formatCompactNumber(video.viewsCount)),
-                    ],
-                  ),
+                  if (video.likesCount > 0 || video.viewsCount > 0) ...[
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildMetric(Icons.favorite_rounded, Formatters.formatCompactNumber(video.likesCount)),
+                        _buildMetric(Icons.chat_bubble_rounded, Formatters.formatCompactNumber(video.commentsCount)),
+                        _buildMetric(Icons.share_rounded, Formatters.formatCompactNumber(video.sharesCount)),
+                        _buildMetric(Icons.play_arrow_rounded, Formatters.formatCompactNumber(video.viewsCount)),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 22),
 
-            // 3. Download Options Header
+            // 3. Download Options
             const Text(
               'Opsi Unduhan',
               style: TextStyle(
@@ -163,66 +216,180 @@ class VideoResultPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // 4. Download Buttons
-            if (video.hasHd) ...[
+            // Download Buttons for Slide Carousel
+            if (isSlide) ...[
               GlassButton(
-                text: 'Unduh Video MP4 (Full HD)',
-                icon: Icons.hd_rounded,
+                text: 'Unduh Semua Foto (${video.images.length} Foto Full HD)',
+                icon: Icons.photo_library_rounded,
                 onPressed: () async {
-                  final started = await downloadProvider.startDownload(
+                  final started = await downloadProvider.startPhotoSlidesDownload(
                     video: video,
-                    isVideo: true,
-                    isHd: true,
                     context: context,
                   );
                   if (started && context.mounted) {
-                    CustomToast.showSuccess(context, 'Pengunduhan Full HD dimulai');
+                    CustomToast.showSuccess(context, 'Mengunduh ${video.images.length} foto ke Galeri...');
                     Navigator.pop(context);
                   }
                 },
               ),
               const SizedBox(height: 10),
-            ],
+              if (video.hasAudio) ...[
+                GlassButton(
+                  text: 'Unduh Audio / Musik MP3',
+                  icon: Icons.music_note_rounded,
+                  isSecondary: true,
+                  onPressed: () async {
+                    final started = await downloadProvider.startDownload(
+                      video: video,
+                      isVideo: false,
+                      isHd: false,
+                      context: context,
+                    );
+                    if (started && context.mounted) {
+                      CustomToast.showSuccess(context, 'Pengunduhan audio dimulai');
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
+            ] else ...[
+              // Download Buttons for Video
+              if (video.hasHd) ...[
+                GlassButton(
+                  text: 'Unduh Video MP4 (Full HD)',
+                  icon: Icons.hd_rounded,
+                  onPressed: () async {
+                    final started = await downloadProvider.startDownload(
+                      video: video,
+                      isVideo: true,
+                      isHd: true,
+                      context: context,
+                    );
+                    if (started && context.mounted) {
+                      CustomToast.showSuccess(context, 'Pengunduhan Full HD dimulai');
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
 
-            GlassButton(
-              text: 'Unduh Video MP4 (No Watermark)',
-              icon: Icons.download_rounded,
-              isSecondary: video.hasHd,
-              onPressed: () async {
-                final started = await downloadProvider.startDownload(
-                  video: video,
-                  isVideo: true,
-                  isHd: false,
-                  context: context,
-                );
-                if (started && context.mounted) {
-                  CustomToast.showSuccess(context, 'Pengunduhan video dimulai');
-                  Navigator.pop(context);
-                }
-              },
-            ),
-            const SizedBox(height: 10),
-
-            if (video.hasAudio)
               GlassButton(
-                text: 'Unduh Audio MP3 (Musik)',
-                icon: Icons.music_note_rounded,
-                isSecondary: true,
+                text: 'Unduh Video MP4 (No Watermark)',
+                icon: Icons.download_rounded,
+                isSecondary: video.hasHd,
                 onPressed: () async {
                   final started = await downloadProvider.startDownload(
                     video: video,
-                    isVideo: false,
+                    isVideo: true,
                     isHd: false,
                     context: context,
                   );
                   if (started && context.mounted) {
-                    CustomToast.showSuccess(context, 'Pengunduhan Audio MP3 dimulai');
+                    CustomToast.showSuccess(context, 'Pengunduhan video dimulai');
                     Navigator.pop(context);
                   }
                 },
               ),
+              const SizedBox(height: 10),
+
+              if (video.hasAudio)
+                GlassButton(
+                  text: 'Unduh Audio MP3 (Musik)',
+                  icon: Icons.music_note_rounded,
+                  isSecondary: true,
+                  onPressed: () async {
+                    final started = await downloadProvider.startDownload(
+                      video: video,
+                      isVideo: false,
+                      isHd: false,
+                      context: context,
+                    );
+                    if (started && context.mounted) {
+                      CustomToast.showSuccess(context, 'Pengunduhan Audio MP3 dimulai');
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoCarousel(double screenWidth) {
+    final images = widget.video.images;
+    return Container(
+      width: double.infinity,
+      height: 360,
+      decoration: BoxDecoration(
+        color: const Color(0xFF141416),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: images.length,
+            onPageChanged: (index) => setState(() => _currentSlideIndex = index),
+            itemBuilder: (context, index) {
+              return CachedNetworkImage(
+                imageUrl: images[index],
+                fit: BoxFit.contain,
+                placeholder: (context, url) => const Center(
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                ),
+                errorWidget: (context, url, error) => const Center(
+                  child: Icon(Icons.broken_image_rounded, color: AppColors.textMuted, size: 48),
+                ),
+              );
+            },
+          ),
+          // Slide Badge Counter
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white12, width: 1),
+              ),
+              child: Text(
+                '${_currentSlideIndex + 1} / ${images.length}',
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          // Slide Indicator Dots
+          if (images.length > 1)
+            Positioned(
+              bottom: 12,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(images.length > 8 ? 8 : images.length, (index) {
+                  final isSelected = (index == _currentSlideIndex) ||
+                      (index == 7 && _currentSlideIndex >= 7);
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: isSelected ? 16 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.white : Colors.white24,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  );
+                }),
+              ),
+            ),
+        ],
       ),
     );
   }
