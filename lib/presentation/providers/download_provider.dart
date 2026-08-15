@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../../domain/entities/download_item.dart';
 import '../../domain/entities/tiktok_video.dart';
 import '../../domain/usecases/save_history_usecase.dart';
@@ -52,14 +52,12 @@ class DownloadProvider extends ChangeNotifier {
     // 1. Request Media Permissions
     final hasPermission = await MediaStorageService.requestStoragePermission();
     if (!hasPermission && !kIsWeb) {
-      // Still proceed with scoped storage
+      // Proceed with scoped storage
     }
 
     final downloadUrl = isVideo
-        ? (isHd && video.hdVideoUrl != null && video.hdVideoUrl!.isNotEmpty
-            ? video.hdVideoUrl!
-            : video.videoUrl)
-        : (video.musicUrl ?? video.videoUrl);
+        ? (isHd && video.hasHd ? video.videoHdUrl! : video.videoUrl)
+        : (video.audioUrl ?? video.videoUrl);
 
     if (downloadUrl.isEmpty) return false;
 
@@ -92,7 +90,7 @@ class DownloadProvider extends ChangeNotifier {
     final activeItem = ActiveDownload(
       id: downloadId,
       title: video.title,
-      authorName: video.authorNickname.isNotEmpty ? video.authorNickname : video.authorUniqueId,
+      authorName: video.authorName.isNotEmpty ? video.authorName : video.authorUsername,
       thumbnailUrl: video.coverUrl,
       isVideo: isVideo,
       task: task,
@@ -123,11 +121,11 @@ class DownloadProvider extends ChangeNotifier {
         final historyItem = DownloadItem(
           id: downloadId,
           title: video.title.isNotEmpty ? video.title : 'TikTok ${isVideo ? "Video" : "Audio"}',
-          authorName: video.authorNickname.isNotEmpty ? video.authorNickname : '@${video.authorUniqueId}',
+          authorName: video.authorName.isNotEmpty ? video.authorName : '@${video.authorUsername}',
           thumbnailUrl: video.coverUrl,
           savedPath: finalSavedPath,
           downloadedAt: DateTime.now(),
-          fileSizeBytes: task.totalBytes > 0 ? task.totalBytes : (isVideo ? (isHd ? video.hdSizeBytes : video.sizeBytes) : 0),
+          fileSizeBytes: task.totalBytes > 0 ? task.totalBytes : video.fileSize,
           isVideo: isVideo,
         );
 

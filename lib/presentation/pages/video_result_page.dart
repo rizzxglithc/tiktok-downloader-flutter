@@ -57,9 +57,9 @@ class VideoResultPage extends StatelessWidget {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(20),
-                        child: video.authorAvatarUrl.isNotEmpty
+                        child: video.authorAvatar.isNotEmpty
                             ? CachedNetworkImage(
-                                imageUrl: video.authorAvatarUrl,
+                                imageUrl: video.authorAvatar,
                                 width: 42,
                                 height: 42,
                                 fit: BoxFit.cover,
@@ -84,7 +84,7 @@ class VideoResultPage extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              video.authorNickname.isNotEmpty ? video.authorNickname : video.authorUniqueId,
+                              video.authorName.isNotEmpty ? video.authorName : video.authorUsername,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
@@ -92,7 +92,7 @@ class VideoResultPage extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '@${video.authorUniqueId}',
+                              '@${video.authorUsername}',
                               style: const TextStyle(
                                 color: AppColors.textMuted,
                                 fontSize: 12,
@@ -132,10 +132,10 @@ class VideoResultPage extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildMetric(Icons.favorite_rounded, Formatters.formatCompactNumber(video.diggCount)),
-                      _buildMetric(Icons.chat_bubble_rounded, Formatters.formatCompactNumber(video.commentCount)),
-                      _buildMetric(Icons.share_rounded, Formatters.formatCompactNumber(video.shareCount)),
-                      _buildMetric(Icons.play_arrow_rounded, Formatters.formatCompactNumber(video.playCount)),
+                      _buildMetric(Icons.favorite_rounded, Formatters.formatCompactNumber(video.likesCount)),
+                      _buildMetric(Icons.chat_bubble_rounded, Formatters.formatCompactNumber(video.commentsCount)),
+                      _buildMetric(Icons.share_rounded, Formatters.formatCompactNumber(video.sharesCount)),
+                      _buildMetric(Icons.play_arrow_rounded, Formatters.formatCompactNumber(video.viewsCount)),
                     ],
                   ),
                 ],
@@ -157,29 +157,31 @@ class VideoResultPage extends StatelessWidget {
 
             // 4. Download Buttons
             // Button A: HD MP4 No-Watermark
-            GlassButton(
-              text: 'Unduh Video MP4 (Full HD)',
-              icon: Icons.hd_rounded,
-              onPressed: () async {
-                final started = await downloadProvider.startDownload(
-                  video: video,
-                  isVideo: true,
-                  isHd: true,
-                  context: context,
-                );
-                if (started && context.mounted) {
-                  CustomToast.showSuccess(context, 'Pengunduhan Full HD dimulai');
-                  Navigator.pop(context);
-                }
-              },
-            ),
-            const SizedBox(height: 10),
+            if (video.hasHd) ...[
+              GlassButton(
+                text: 'Unduh Video MP4 (Full HD)',
+                icon: Icons.hd_rounded,
+                onPressed: () async {
+                  final started = await downloadProvider.startDownload(
+                    video: video,
+                    isVideo: true,
+                    isHd: true,
+                    context: context,
+                  );
+                  if (started && context.mounted) {
+                    CustomToast.showSuccess(context, 'Pengunduhan Full HD dimulai');
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
 
             // Button B: Standard MP4
             GlassButton(
-              text: 'Unduh Video MP4 (Standard)',
+              text: 'Unduh Video MP4 (No Watermark)',
               icon: Icons.download_rounded,
-              isSecondary: true,
+              isSecondary: video.hasHd,
               onPressed: () async {
                 final started = await downloadProvider.startDownload(
                   video: video,
@@ -188,7 +190,7 @@ class VideoResultPage extends StatelessWidget {
                   context: context,
                 );
                 if (started && context.mounted) {
-                  CustomToast.showSuccess(context, 'Pengunduhan Standard dimulai');
+                  CustomToast.showSuccess(context, 'Pengunduhan video dimulai');
                   Navigator.pop(context);
                 }
               },
@@ -196,7 +198,7 @@ class VideoResultPage extends StatelessWidget {
             const SizedBox(height: 10),
 
             // Button C: Audio MP3
-            if (video.musicUrl != null && video.musicUrl!.isNotEmpty)
+            if (video.hasAudio)
               GlassButton(
                 text: 'Unduh Audio MP3 (Musik)',
                 icon: Icons.music_note_rounded,
