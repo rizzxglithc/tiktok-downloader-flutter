@@ -153,7 +153,7 @@ class _SettingsPageState extends State<SettingsPage> {
               padding: const EdgeInsets.all(16),
               borderRadius: 16,
               onTap: _showQuickShareGuide,
-              child: const Row(
+              child: Row(
                 children: [
                   Container(
                     padding: EdgeInsets.all(10),

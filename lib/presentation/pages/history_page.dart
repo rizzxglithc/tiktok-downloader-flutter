@@ -335,7 +335,7 @@ class _HistoryPageState extends State<HistoryPage> {
                             IconButton(
                               icon: const Icon(Icons.share_rounded, color: AppColors.textSecondary, size: 18),
                               tooltip: 'Bagikan',
-                              onPressed: () => _handleShare(item.filePath, item.title, item.isVideo, item.url),
+                              onPressed: () => _handleShare(item.filePath, item.title, item.isVideo, item.sourceUrl),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline_rounded, color: AppColors.textMuted, size: 18),
