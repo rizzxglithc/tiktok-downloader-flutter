@@ -34,7 +34,7 @@ dependencies:
   # UI, Icons, Animations & Utilities
   intl: ^0.19.0
   flutter_animate: ^4.5.0
-  flutter_spinkit: ^5.2.1
+  flutter_spinkit: 5.2.0
 
 dev_dependencies:
   flutter_test:
