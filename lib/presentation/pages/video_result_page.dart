@@ -36,12 +36,16 @@ class _VideoResultPageState extends State<VideoResultPage> {
     final isCompact = screenWidth < 360;
     final video = widget.video;
     final isSlide = video.isSlide && video.images.isNotEmpty;
-    final isInstagram = video.platform == MediaPlatform.instagram;
+    final isAudioOnly = video.contentType == MediaContentType.audio;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(isSlide ? 'Detail Slide Foto' : 'Detail Media'),
+        title: Text(
+          isSlide
+              ? 'Detail Slide Foto'
+              : (isAudioOnly ? 'Detail Musik & Audio' : 'Detail Media'),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
           onPressed: () => Navigator.pop(context),
@@ -52,9 +56,11 @@ class _VideoResultPageState extends State<VideoResultPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Media Preview Area: Photo Slide Carousel or Video Player
+            // 1. Media Preview Area: Photo Slide Carousel, Audio Art, or Video Player
             if (isSlide)
               _buildPhotoCarousel(screenWidth)
+            else if (isAudioOnly)
+              _buildAudioCard(screenWidth)
             else
               Center(
                 child: ConstrainedBox(
@@ -126,11 +132,11 @@ class _VideoResultPageState extends State<VideoResultPage> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: isInstagram ? Colors.white12 : Colors.white24,
+                                    color: Colors.white12,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
-                                    isInstagram ? 'Instagram' : 'TikTok',
+                                    video.platformDisplayName,
                                     style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
                                   ),
                                 ),
@@ -253,6 +259,25 @@ class _VideoResultPageState extends State<VideoResultPage> {
                 ),
                 const SizedBox(height: 10),
               ],
+            ] else if (isAudioOnly) ...[
+              // Audio only download (Spotify, SoundCloud, Audio)
+              GlassButton(
+                text: 'Unduh Lagu MP3 (Kualitas Penuh)',
+                icon: Icons.music_note_rounded,
+                onPressed: () async {
+                  final started = await downloadProvider.startDownload(
+                    video: video,
+                    isVideo: false,
+                    isHd: false,
+                    context: context,
+                  );
+                  if (started && context.mounted) {
+                    CustomToast.showSuccess(context, 'Pengunduhan audio dimulai');
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
             ] else ...[
               // Download Buttons for Video
               if (video.hasHd) ...[
@@ -389,6 +414,59 @@ class _VideoResultPageState extends State<VideoResultPage> {
                 }),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAudioCard(double screenWidth) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141416),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border, width: 1),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 140,
+            height: 140,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: widget.video.coverUrl.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: widget.video.coverUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (context, url, error) => const Icon(Icons.music_note_rounded, color: Colors.white, size: 60),
+                  )
+                : const Icon(Icons.music_note_rounded, color: Colors.white, size: 60),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            widget.video.title,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            widget.video.authorName,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+          ),
         ],
       ),
     );

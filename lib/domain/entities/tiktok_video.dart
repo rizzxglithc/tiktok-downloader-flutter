@@ -1,6 +1,18 @@
 enum MediaPlatform {
   tiktok,
   instagram,
+  facebook,
+  twitter,
+  youtube,
+  threads,
+  capcut,
+  spotify,
+  soundcloud,
+  pinterest,
+  douyin,
+  snackvideo,
+  kuaishou,
+  universal,
 }
 
 enum MediaContentType {
@@ -64,4 +76,37 @@ class TikTokVideo {
   bool get hasAudio => audioUrl != null && audioUrl!.isNotEmpty;
   bool get hasHd => videoHdUrl != null && videoHdUrl!.isNotEmpty;
   bool get isSlide => images.isNotEmpty || contentType == MediaContentType.photos;
+
+  String get platformDisplayName {
+    switch (platform) {
+      case MediaPlatform.tiktok:
+        return 'TikTok';
+      case MediaPlatform.instagram:
+        return 'Instagram';
+      case MediaPlatform.facebook:
+        return 'Facebook';
+      case MediaPlatform.twitter:
+        return 'Twitter / X';
+      case MediaPlatform.youtube:
+        return 'YouTube';
+      case MediaPlatform.threads:
+        return 'Threads';
+      case MediaPlatform.capcut:
+        return 'CapCut';
+      case MediaPlatform.spotify:
+        return 'Spotify';
+      case MediaPlatform.soundcloud:
+        return 'SoundCloud';
+      case MediaPlatform.pinterest:
+        return 'Pinterest';
+      case MediaPlatform.douyin:
+        return 'Douyin';
+      case MediaPlatform.snackvideo:
+        return 'SnackVideo';
+      case MediaPlatform.kuaishou:
+        return 'Kuaishou';
+      case MediaPlatform.universal:
+        return 'Universal';
+    }
+  }
 }

@@ -8,42 +8,131 @@ class UrlValidator {
   );
 
   static final RegExp _instagramRegex = RegExp(
-    r'(https?:\/\/)?(www\.)?(instagram\.com|instagr\.am)\/(p|reel|reels|stories|tv)\/([A-Za-z0-9_-]+)',
+    r'(https?:\/\/)?(www\.)?(instagram\.com|instagr\.am)\/(p|reel|reels|stories|tv|share)\/([A-Za-z0-9_-]+)',
+    caseSensitive: false,
+  );
+
+  static final RegExp _facebookRegex = RegExp(
+    r'(https?:\/\/)?(www\.|m\.|fb\.|web\.)?(facebook\.com|fb\.watch|fb\.com)\/[^\s]+',
+    caseSensitive: false,
+  );
+
+  static final RegExp _twitterRegex = RegExp(
+    r'(https?:\/\/)?(www\.)?(twitter\.com|x\.com)\/[^\s]+',
+    caseSensitive: false,
+  );
+
+  static final RegExp _youtubeRegex = RegExp(
+    r'(https?:\/\/)?(www\.|m\.)?(youtube\.com|youtu\.be)\/[^\s]+',
+    caseSensitive: false,
+  );
+
+  static final RegExp _threadsRegex = RegExp(
+    r'(https?:\/\/)?(www\.)?(threads\.net|threads\.com)\/[^\s]+',
+    caseSensitive: false,
+  );
+
+  static final RegExp _capcutRegex = RegExp(
+    r'(https?:\/\/)?(www\.)?(capcut\.com|mobile\.capcut\.com)\/[^\s]+',
+    caseSensitive: false,
+  );
+
+  static final RegExp _spotifyRegex = RegExp(
+    r'(https?:\/\/)?(open\.)?(spotify\.com)\/[^\s]+',
+    caseSensitive: false,
+  );
+
+  static final RegExp _soundcloudRegex = RegExp(
+    r'(https?:\/\/)?(www\.|m\.|on\.)?(soundcloud\.com)\/[^\s]+',
+    caseSensitive: false,
+  );
+
+  static final RegExp _pinterestRegex = RegExp(
+    r'(https?:\/\/)?(www\.|id\.|pin\.)?(pinterest\.com|pin\.it)\/[^\s]+',
+    caseSensitive: false,
+  );
+
+  static final RegExp _douyinRegex = RegExp(
+    r'(https?:\/\/)?(www\.|v\.)?(douyin\.com|iesdouyin\.com)\/[^\s]+',
+    caseSensitive: false,
+  );
+
+  static final RegExp _snackvideoRegex = RegExp(
+    r'(https?:\/\/)?(www\.|sck\.)?(snackvideo\.com|sck\.io)\/[^\s]+',
+    caseSensitive: false,
+  );
+
+  static final RegExp _kuaishouRegex = RegExp(
+    r'(https?:\/\/)?(www\.|v\.)?(kuaishou\.com|kwai\.com)\/[^\s]+',
+    caseSensitive: false,
+  );
+
+  static final RegExp _generalHttpRegex = RegExp(
+    r'https?:\/\/[^\s]+',
     caseSensitive: false,
   );
 
   /// Check if the input text contains a valid supported URL
   static bool isValidUrl(String input) {
     if (input.trim().isEmpty) return false;
-    return isValidTikTokUrl(input) || isValidInstagramUrl(input);
-  }
-
-  /// Check if URL is TikTok
-  static bool isValidTikTokUrl(String input) {
-    if (input.trim().isEmpty) return false;
-    return _tiktokRegex.hasMatch(input.trim());
-  }
-
-  /// Check if URL is Instagram
-  static bool isValidInstagramUrl(String input) {
-    if (input.trim().isEmpty) return false;
-    return _instagramRegex.hasMatch(input.trim());
+    return detectPlatform(input) != null || _generalHttpRegex.hasMatch(input.trim());
   }
 
   /// Detect platform from input string
   static MediaPlatform? detectPlatform(String input) {
-    if (isValidTikTokUrl(input)) return MediaPlatform.tiktok;
-    if (isValidInstagramUrl(input)) return MediaPlatform.instagram;
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) return null;
+
+    if (_tiktokRegex.hasMatch(trimmed)) return MediaPlatform.tiktok;
+    if (_instagramRegex.hasMatch(trimmed)) return MediaPlatform.instagram;
+    if (_facebookRegex.hasMatch(trimmed)) return MediaPlatform.facebook;
+    if (_twitterRegex.hasMatch(trimmed)) return MediaPlatform.twitter;
+    if (_youtubeRegex.hasMatch(trimmed)) return MediaPlatform.youtube;
+    if (_threadsRegex.hasMatch(trimmed)) return MediaPlatform.threads;
+    if (_capcutRegex.hasMatch(trimmed)) return MediaPlatform.capcut;
+    if (_spotifyRegex.hasMatch(trimmed)) return MediaPlatform.spotify;
+    if (_soundcloudRegex.hasMatch(trimmed)) return MediaPlatform.soundcloud;
+    if (_pinterestRegex.hasMatch(trimmed)) return MediaPlatform.pinterest;
+    if (_douyinRegex.hasMatch(trimmed)) return MediaPlatform.douyin;
+    if (_snackvideoRegex.hasMatch(trimmed)) return MediaPlatform.snackvideo;
+    if (_kuaishouRegex.hasMatch(trimmed)) return MediaPlatform.kuaishou;
+
+    if (_generalHttpRegex.hasMatch(trimmed)) return MediaPlatform.universal;
     return null;
   }
 
-  /// Extract Instagram shortcode from URL
-  static String? extractInstagramShortcode(String input) {
-    final match = _instagramRegex.firstMatch(input.trim());
-    if (match != null && match.groupCount >= 4) {
-      return match.group(4);
+  /// Get formatted display name for detected platform
+  static String getPlatformName(MediaPlatform platform) {
+    switch (platform) {
+      case MediaPlatform.tiktok:
+        return 'TikTok';
+      case MediaPlatform.instagram:
+        return 'Instagram';
+      case MediaPlatform.facebook:
+        return 'Facebook';
+      case MediaPlatform.twitter:
+        return 'Twitter / X';
+      case MediaPlatform.youtube:
+        return 'YouTube';
+      case MediaPlatform.threads:
+        return 'Threads';
+      case MediaPlatform.capcut:
+        return 'CapCut';
+      case MediaPlatform.spotify:
+        return 'Spotify';
+      case MediaPlatform.soundcloud:
+        return 'SoundCloud';
+      case MediaPlatform.pinterest:
+        return 'Pinterest';
+      case MediaPlatform.douyin:
+        return 'Douyin';
+      case MediaPlatform.snackvideo:
+        return 'SnackVideo';
+      case MediaPlatform.kuaishou:
+        return 'Kuaishou';
+      case MediaPlatform.universal:
+        return 'Universal';
     }
-    return null;
   }
 
   /// Clean and extract URL from arbitrary user text or pasted clipboard
@@ -51,35 +140,37 @@ class UrlValidator {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return null;
 
-    final igMatch = _instagramRegex.firstMatch(trimmed);
-    if (igMatch != null) {
-      String rawUrl = igMatch.group(0)!;
-      if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
-        rawUrl = 'https://$rawUrl';
+    final match = _generalHttpRegex.firstMatch(trimmed);
+    if (match != null) {
+      String rawUrl = match.group(0)!;
+      // Remove trailing punctuation often pasted with URLs
+      while (rawUrl.endsWith(')') || rawUrl.endsWith(']') || rawUrl.endsWith('}') || rawUrl.endsWith('.')) {
+        rawUrl = rawUrl.substring(0, rawUrl.length - 1);
       }
       return rawUrl;
     }
 
-    final ttMatch = _tiktokRegex.firstMatch(trimmed);
-    if (ttMatch != null) {
-      String rawUrl = ttMatch.group(0)!;
-      if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
-        rawUrl = 'https://$rawUrl';
-      }
-      return rawUrl;
+    // If starts with domain directly
+    if (trimmed.contains('.com') || trimmed.contains('.net') || trimmed.contains('.io') || trimmed.contains('.be')) {
+      return 'https://$trimmed';
     }
 
     return null;
   }
 
-  /// Legacy alias
-  static String? cleanAndExtractTikTokUrl(String input) {
-    return cleanAndExtractUrl(input);
-  }
+  /// Legacy aliases
+  static String? cleanAndExtractTikTokUrl(String input) => cleanAndExtractUrl(input);
+  static bool isValidTikTokUrl(String input) => _tiktokRegex.hasMatch(input.trim());
+  static bool isValidInstagramUrl(String input) => _instagramRegex.hasMatch(input.trim());
 
-  /// Resolve short links (vt.tiktok.com, vm.tiktok.com) to full canonical video URLs
+  /// Resolve short links
   static Future<String> resolveToCanonicalUrl(String url) async {
-    if (!url.contains('vt.tiktok.com') && !url.contains('vm.tiktok.com')) {
+    if (!url.contains('vt.tiktok.com') &&
+        !url.contains('vm.tiktok.com') &&
+        !url.contains('fb.watch') &&
+        !url.contains('sck.io') &&
+        !url.contains('pin.it') &&
+        !url.contains('youtu.be')) {
       return url;
     }
 

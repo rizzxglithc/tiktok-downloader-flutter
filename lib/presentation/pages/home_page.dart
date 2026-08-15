@@ -50,7 +50,8 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _urlController.text = extracted;
       });
-      final platformName = _detectedPlatform == MediaPlatform.instagram ? 'Instagram' : 'TikTok';
+      final platform = UrlValidator.detectPlatform(extracted) ?? MediaPlatform.universal;
+      final platformName = UrlValidator.getPlatformName(platform);
       CustomToast.showInfo(context, 'Tautan $platformName terdeteksi dari papan klip');
     }
   }
@@ -69,12 +70,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _handleDownload() async {
     final url = _urlController.text.trim();
     if (url.isEmpty) {
-      setState(() => _errorMessage = 'Masukkan URL TikTok atau Instagram');
+      setState(() => _errorMessage = 'Masukkan URL media sosial untuk diunduh');
       return;
     }
 
     if (!UrlValidator.isValidUrl(url)) {
-      setState(() => _errorMessage = 'Format URL tidak valid. Pastikan tautan TikTok / Instagram.');
+      setState(() => _errorMessage = 'Format URL tidak valid. Masukkan tautan publik yang didukung.');
       return;
     }
 
@@ -97,6 +98,39 @@ class _HomePageState extends State<HomePage> {
         context,
         (err != null && err.isNotEmpty) ? err : 'Gagal memproses media. Pastikan tautan bersifat publik.',
       );
+    }
+  }
+
+  IconData _getPlatformIcon(MediaPlatform platform) {
+    switch (platform) {
+      case MediaPlatform.tiktok:
+        return Icons.music_video_rounded;
+      case MediaPlatform.instagram:
+        return Icons.camera_alt_rounded;
+      case MediaPlatform.facebook:
+        return Icons.facebook_rounded;
+      case MediaPlatform.twitter:
+        return Icons.alternate_email_rounded;
+      case MediaPlatform.youtube:
+        return Icons.play_circle_fill_rounded;
+      case MediaPlatform.threads:
+        return Icons.forum_rounded;
+      case MediaPlatform.capcut:
+        return Icons.content_cut_rounded;
+      case MediaPlatform.spotify:
+        return Icons.headphones_rounded;
+      case MediaPlatform.soundcloud:
+        return Icons.graphic_eq_rounded;
+      case MediaPlatform.pinterest:
+        return Icons.push_pin_rounded;
+      case MediaPlatform.douyin:
+        return Icons.video_library_rounded;
+      case MediaPlatform.snackvideo:
+        return Icons.movie_creation_rounded;
+      case MediaPlatform.kuaishou:
+        return Icons.flash_on_rounded;
+      case MediaPlatform.universal:
+        return Icons.link_rounded;
     }
   }
 
@@ -186,7 +220,7 @@ class _HomePageState extends State<HomePage> {
                         Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 12),
                         SizedBox(width: 5),
                         Text(
-                          'Slide & HD',
+                          'All-In-One Pro',
                           style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -209,7 +243,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Dukungan penuh untuk TikTok & Instagram: Unduh Video HD tanpa watermark, Slide Foto Carousel, dan Musik MP3.',
+                'Dukungan penuh untuk TikTok, Instagram, Facebook, Twitter, YouTube, Threads, CapCut, Spotify & lainnya tanpa watermark.',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13.5,
@@ -218,7 +252,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 20),
 
-              // 3. Main Input Card with Auto-Detect Badge
+              // 3. Main Input Card with Dynamic Auto-Detect
               GlassCard(
                 padding: EdgeInsets.all(isCompact ? 14 : 18),
                 borderRadius: 20,
@@ -227,7 +261,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     GlassTextField(
                       controller: _urlController,
-                      hintText: 'Tempel link TikTok atau Instagram...',
+                      hintText: 'Tempel link TikTok, IG, FB, X, YouTube...',
                       errorText: _errorMessage,
                       prefixIcon: const Icon(Icons.link_rounded, color: AppColors.textMuted, size: 20),
                       suffixIcon: _urlController.text.isEmpty
@@ -246,11 +280,11 @@ class _HomePageState extends State<HomePage> {
                       onSubmitted: (_) => _handleDownload(),
                     ),
 
-                    // Auto-Detected Platform Pill
+                    // Dynamic Auto-Detected Platform Pill
                     if (_detectedPlatform != null) ...[
                       const SizedBox(height: 10),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(10),
@@ -260,17 +294,13 @@ class _HomePageState extends State<HomePage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _detectedPlatform == MediaPlatform.instagram
-                                  ? Icons.camera_alt_rounded
-                                  : Icons.music_video_rounded,
+                              _getPlatformIcon(_detectedPlatform!),
                               color: Colors.white,
                               size: 13,
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              _detectedPlatform == MediaPlatform.instagram
-                                  ? 'Platform Terdeteksi: Instagram'
-                                  : 'Platform Terdeteksi: TikTok',
+                              'Platform Terdeteksi: ${UrlValidator.getPlatformName(_detectedPlatform!)}',
                               style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
                             ),
                           ],
@@ -290,7 +320,34 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 22),
 
-              // 4. Quick Features Cards
+              // 4. Supported Platforms Badges Row
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildPlatformBadge(Icons.music_video_rounded, 'TikTok'),
+                    const SizedBox(width: 8),
+                    _buildPlatformBadge(Icons.camera_alt_rounded, 'Instagram'),
+                    const SizedBox(width: 8),
+                    _buildPlatformBadge(Icons.facebook_rounded, 'Facebook'),
+                    const SizedBox(width: 8),
+                    _buildPlatformBadge(Icons.alternate_email_rounded, 'Twitter / X'),
+                    const SizedBox(width: 8),
+                    _buildPlatformBadge(Icons.play_circle_fill_rounded, 'YouTube'),
+                    const SizedBox(width: 8),
+                    _buildPlatformBadge(Icons.forum_rounded, 'Threads'),
+                    const SizedBox(width: 8),
+                    _buildPlatformBadge(Icons.content_cut_rounded, 'CapCut'),
+                    const SizedBox(width: 8),
+                    _buildPlatformBadge(Icons.headphones_rounded, 'Spotify'),
+                    const SizedBox(width: 8),
+                    _buildPlatformBadge(Icons.push_pin_rounded, 'Pinterest'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 5. Quick Features
               Row(
                 children: [
                   Expanded(
@@ -308,7 +365,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 26),
 
-              // 5. Recent Downloads Section
+              // 6. Recent Downloads Section
               if (historyProvider.allItems.isNotEmpty) ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -424,6 +481,28 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPlatformBadge(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white70, size: 14),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w500),
+          ),
+        ],
       ),
     );
   }

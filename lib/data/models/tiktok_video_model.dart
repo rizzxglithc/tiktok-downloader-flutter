@@ -160,4 +160,50 @@ class TikTokVideoModel extends TikTokVideo {
       contentType: isVideo ? MediaContentType.video : MediaContentType.photos,
     );
   }
+
+  /// Universal parser for all platforms (Facebook, Twitter, YouTube, Threads, CapCut, Spotify, etc.)
+  factory TikTokVideoModel.fromUniversalMedia({
+    required String id,
+    required String originalUrl,
+    required String title,
+    required String authorName,
+    required String authorUsername,
+    required String authorAvatar,
+    required String coverUrl,
+    required String videoUrl,
+    String? videoHdUrl,
+    String? audioUrl,
+    List<String> images = const [],
+    required MediaPlatform platform,
+    MediaContentType contentType = MediaContentType.video,
+    int durationSeconds = 0,
+    int width = 1080,
+    int height = 1920,
+  }) {
+    return TikTokVideoModel(
+      id: id,
+      url: originalUrl,
+      title: title.isNotEmpty ? title : '${UrlValidator.getPlatformName(platform)} Post',
+      authorName: authorName.isNotEmpty ? authorName : UrlValidator.getPlatformName(platform),
+      authorUsername: authorUsername.isNotEmpty ? (authorUsername.startsWith('@') ? authorUsername : '@$authorUsername') : '@user',
+      authorAvatar: authorAvatar,
+      coverUrl: coverUrl,
+      dynamicCoverUrl: coverUrl,
+      videoUrl: videoUrl,
+      videoHdUrl: videoHdUrl ?? videoUrl,
+      audioUrl: audioUrl,
+      images: images,
+      durationSeconds: durationSeconds,
+      width: width,
+      height: height,
+      fileSize: 0,
+      viewsCount: 0,
+      likesCount: 0,
+      commentsCount: 0,
+      sharesCount: 0,
+      createdAt: DateTime.now(),
+      platform: platform,
+      contentType: contentType,
+    );
+  }
 }
