@@ -72,6 +72,11 @@ class UrlValidator {
     return null;
   }
 
+  /// Legacy alias
+  static String? cleanAndExtractTikTokUrl(String input) {
+    return cleanAndExtractUrl(input);
+  }
+
   /// Resolve short links (vt.tiktok.com, vm.tiktok.com) to full canonical video URLs
   static Future<String> resolveToCanonicalUrl(String url) async {
     if (!url.contains('vt.tiktok.com') && !url.contains('vm.tiktok.com')) {

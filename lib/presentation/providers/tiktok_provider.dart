@@ -24,7 +24,7 @@ class TikTokProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isLoading => _state == TikTokState.loading;
 
-  /// Paste TikTok URL directly from clipboard
+  /// Paste URL directly from clipboard
   Future<bool> pasteFromClipboard() async {
     final cleanUrl = await ClipboardService.getTikTokUrlFromClipboard();
     if (cleanUrl != null) {
@@ -36,7 +36,7 @@ class TikTokProvider extends ChangeNotifier {
       final raw = await ClipboardService.getRawClipboardText();
       if (raw != null && raw.isNotEmpty) {
         urlController.text = raw.trim();
-        _errorMessage = 'Tautan di clipboard bukan URL video TikTok yang valid.';
+        _errorMessage = 'Tautan di clipboard bukan URL yang valid.';
       } else {
         _errorMessage = 'Clipboard kosong.';
       }
@@ -45,14 +45,14 @@ class TikTokProvider extends ChangeNotifier {
     }
   }
 
-  /// Process & Fetch TikTok Video details from API
+  /// Process & Fetch Video / Photos details from API
   Future<bool> fetchVideo([String? customUrl]) async {
     final inputUrl = customUrl ?? urlController.text;
-    final validUrl = UrlValidator.cleanAndExtractTikTokUrl(inputUrl);
+    final validUrl = UrlValidator.cleanAndExtractUrl(inputUrl);
 
     if (validUrl == null) {
       _state = TikTokState.error;
-      _errorMessage = 'Tolong masukkan URL TikTok yang valid (contoh: https://vt.tiktok.com/...)';
+      _errorMessage = 'Tolong masukkan URL TikTok atau Instagram yang valid';
       notifyListeners();
       return false;
     }
@@ -75,7 +75,7 @@ class TikTokProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       _state = TikTokState.error;
-      _errorMessage = 'Gagal mengambil informasi video. Silakan coba lagi.';
+      _errorMessage = 'Gagal memproses media. Silakan coba lagi.';
       notifyListeners();
       return false;
     }
