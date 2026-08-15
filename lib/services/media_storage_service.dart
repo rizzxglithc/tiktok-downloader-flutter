@@ -22,6 +22,18 @@ class MediaStorageService {
     }
   }
 
+  /// Get base download directory
+  static Future<Directory> getDownloadDirectory() async {
+    Directory? baseDir;
+    try {
+      if (Platform.isAndroid) {
+        baseDir = await getExternalStorageDirectory();
+      }
+    } catch (_) {}
+    baseDir ??= await getApplicationDocumentsDirectory();
+    return baseDir;
+  }
+
   /// Generate appropriate local save path for downloaded media
   static Future<String> generateFilePath({
     required String id,
@@ -33,15 +45,7 @@ class MediaStorageService {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final fileName = '${cleanTitle.isNotEmpty ? cleanTitle : "tiktok_${id}"}_$timestamp.$ext';
 
-    Directory? baseDir;
-    try {
-      if (Platform.isAndroid) {
-        // Preferred base directory
-        baseDir = await getExternalStorageDirectory();
-      }
-    } catch (_) {}
-
-    baseDir ??= await getApplicationDocumentsDirectory();
+    final baseDir = await getDownloadDirectory();
     final mediaDir = Directory('${baseDir.path}/${isVideo ? "videos" : "audios"}');
 
     if (!await mediaDir.exists()) {

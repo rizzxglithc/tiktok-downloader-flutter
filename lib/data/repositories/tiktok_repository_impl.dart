@@ -9,6 +9,6 @@ class TikTokRepositoryImpl implements TikTokRepository {
 
   @override
   Future<TikTokVideo> getVideoInfo(String url) async {
-    return await remoteDataSource.fetchVideoDetails(url);
+    return await remoteDataSource.getVideoInfo(url);
   }
 }

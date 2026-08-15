@@ -7,6 +7,7 @@ import '../models/tiktok_video_model.dart';
 
 abstract class TikTokRemoteDataSource {
   Future<TikTokVideoModel> getVideoInfo(String url);
+  Future<TikTokVideoModel> fetchVideoDetails(String url);
 }
 
 class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
@@ -16,6 +17,11 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
 
   @override
   Future<TikTokVideoModel> getVideoInfo(String url) async {
+    return await fetchVideoDetails(url);
+  }
+
+  @override
+  Future<TikTokVideoModel> fetchVideoDetails(String url) async {
     // 1. Resolve short links if applicable
     final resolvedUrl = await UrlValidator.resolveToCanonicalUrl(url);
 
@@ -26,7 +32,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
         'hd': 1,
       });
 
-      final response = await apiClient.post(
+      final response = await apiClient.dio.post(
         ApiConstants.tikwmBaseUrl,
         data: formData,
         options: Options(
@@ -44,10 +50,10 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
       final code = data['code'];
       if (code == 0 && data.containsKey('data')) {
         final videoData = data['data'] as Map<String, dynamic>;
-        return TikTokVideoModel.fromJson(videoData, resolvedUrl);
+        return TikTokVideoModel.fromTikWmJson(videoData, resolvedUrl);
       } else {
         final msg = data['msg'] as String? ?? 'Gagal memproses video TikTok. Pastikan video tidak di-private.';
-        throw ServerException(msg);
+        throw ApiException(msg);
       }
     } on DioException catch (e) {
       if (e.type == DioExceptionType.connectionTimeout ||
@@ -58,7 +64,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
       throw NetworkException('Terjadi kendala jaringan: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      throw ServerException('Gagal mengambil data video: ${e.toString()}');
+      throw ApiException('Gagal mengambil data video: ${e.toString()}');
     }
   }
 }
