@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/url_validator.dart';
 import '../../domain/entities/tiktok_video.dart';
 import '../../services/clipboard_service.dart';
+import '../../services/quick_share_service.dart';
 import '../providers/tiktok_provider.dart';
 import '../providers/history_provider.dart';
 import '../widgets/glass_button.dart';
@@ -24,12 +26,39 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _urlController = TextEditingController();
   String? _errorMessage;
   MediaPlatform? _detectedPlatform;
+  StreamSubscription<String>? _shareSubscription;
 
   @override
   void initState() {
     super.initState();
     _urlController.addListener(_onUrlChanged);
     _checkClipboard();
+    _initQuickShare();
+  }
+
+  void _initQuickShare() {
+    QuickShareService.initialize(onUrlReceived: (url) {
+      if (mounted && url.isNotEmpty) {
+        setState(() {
+          _urlController.text = url;
+          _errorMessage = null;
+        });
+        final platform = UrlValidator.detectPlatform(url) ?? MediaPlatform.universal;
+        final platformName = UrlValidator.getPlatformName(platform);
+        CustomToast.showInfo(context, 'Menerima tautan $platformName dari menu Bagikan 🚀');
+        _handleDownload(autoProcess: true);
+      }
+    });
+
+    _shareSubscription = QuickShareService.onSharedUrlReceived.listen((url) {
+      if (mounted && url.isNotEmpty) {
+        setState(() {
+          _urlController.text = url;
+          _errorMessage = null;
+        });
+        _handleDownload(autoProcess: true);
+      }
+    });
   }
 
   void _onUrlChanged() {
@@ -67,7 +96,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _handleDownload() async {
+  Future<void> _handleDownload({bool autoProcess = false}) async {
     final url = _urlController.text.trim();
     if (url.isEmpty) {
       setState(() => _errorMessage = 'Masukkan URL media sosial untuk diunduh');
@@ -136,6 +165,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _shareSubscription?.cancel();
     _urlController.removeListener(_onUrlChanged);
     _urlController.dispose();
     super.dispose();
@@ -217,11 +247,11 @@ class _HomePageState extends State<HomePage> {
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 12),
+                        Icon(Icons.share_rounded, color: Colors.white, size: 11),
                         SizedBox(width: 5),
                         Text(
-                          'All-In-One Pro',
-                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                          'Quick Share Aktif',
+                          style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -243,7 +273,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Dukungan penuh untuk TikTok, Instagram, Facebook, Twitter, YouTube, Threads, CapCut, Spotify & lainnya tanpa watermark.',
+                'Dukungan penuh untuk TikTok, Instagram, Facebook, Twitter/X, YouTube, Threads, CapCut, Spotify & lainnya tanpa watermark.',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13.5,
@@ -261,7 +291,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     GlassTextField(
                       controller: _urlController,
-                      hintText: 'Tempel link TikTok, IG, FB, X, YouTube...',
+                      hintText: 'Tempel link atau pilih Bagikan ke MyDownloader...',
                       errorText: _errorMessage,
                       prefixIcon: const Icon(Icons.link_rounded, color: AppColors.textMuted, size: 20),
                       suffixIcon: _urlController.text.isEmpty
@@ -351,11 +381,11 @@ class _HomePageState extends State<HomePage> {
               Row(
                 children: [
                   Expanded(
-                    child: _buildFeaturePill(Icons.photo_library_rounded, 'Slide Foto', 'Carousel HD'),
+                    child: _buildFeaturePill(Icons.share_rounded, 'Quick Share', 'Menu Bagikan HP'),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _buildFeaturePill(Icons.movie_filter_rounded, 'Reels & MP4', 'No Watermark'),
+                    child: _buildFeaturePill(Icons.photo_library_rounded, 'Slide Foto', 'Carousel HD'),
                   ),
                   const SizedBox(width: 10),
                   Expanded(

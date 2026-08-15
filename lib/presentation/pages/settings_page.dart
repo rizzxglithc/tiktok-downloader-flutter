@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/formatters.dart';
 import '../providers/settings_provider.dart';
@@ -20,6 +21,55 @@ class _SettingsPageState extends State<SettingsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SettingsProvider>().calculateStorageUsed();
     });
+  }
+
+  void _showQuickShareGuide() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF18181B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.share_rounded, color: Colors.white, size: 22),
+            SizedBox(width: 10),
+            Text(
+              'Cara Pakai Quick Share',
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _GuideStep(
+              step: '1',
+              title: 'Buka Media Sosial',
+              desc: 'Buka aplikasi TikTok, Instagram, Twitter/X, atau YouTube.',
+            ),
+            SizedBox(height: 12),
+            _GuideStep(
+              step: '2',
+              title: 'Klik Tombol "Bagikan"',
+              desc: 'Klik ikon Share / Bagikan pada video, slide, atau lagu.',
+            ),
+            SizedBox(height: 12),
+            _GuideStep(
+              step: '3',
+              title: 'Pilih "MyDownloader"',
+              desc: 'Pilih MyDownloader di daftar menu, aplikasi akan otomatis memproses tautan tanpa copy-paste manual!',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Mengerti', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -48,7 +98,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     height: 48,
                     decoration: BoxDecoration(
                       color: const Color(0xFF1E1E22),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: AppColors.borderLight, width: 1),
                     ),
                     clipBehavior: Clip.antiAlias,
@@ -77,7 +127,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Versi 1.1.0 (Universal Multi-Platform & Slides)',
+                          'Versi 1.2.0 • Universal Media Downloader',
                           style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                         ),
                       ],
@@ -88,7 +138,55 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 24),
 
-            // 2. Storage Section
+            // 2. Quick Share Feature Spotlight
+            const Text(
+              'Fitur Unggulan',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            GlassCard(
+              padding: const EdgeInsets.all(16),
+              borderRadius: 16,
+              onTap: _showQuickShareGuide,
+              child: const Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white10,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.share_rounded, color: Colors.white, size: 20),
+                  ),
+                  SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Quick Share (Unduh via Menu Bagikan)',
+                          style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Unduh langsung dari TikTok, IG, FB tanpa copy-paste',
+                          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 3. Storage Section
             const Text(
               'Penyimpanan & Memori',
               style: TextStyle(
@@ -159,7 +257,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 24),
 
-            // 3. Download Preferences
+            // 4. Download Preferences
             const Text(
               'Preferensi',
               style: TextStyle(
@@ -211,7 +309,29 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 24),
 
-            // 4. Disclaimer Card
+            // 5. App Sharing & Disclaimer
+            GlassCard(
+              padding: const EdgeInsets.all(16),
+              borderRadius: 16,
+              onTap: () {
+                Share.share('Unduh video tanpa watermark, slide foto, dan musik dari TikTok, IG, FB, dll dengan MyDownloader Pro!');
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.share_outlined, color: Colors.white, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Bagikan Aplikasi MyDownloader',
+                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 18),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
             GlassCard(
               padding: const EdgeInsets.all(14),
               borderRadius: 14,
@@ -222,7 +342,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'MyDownloader adalah aplikasi utilitas independen dan tidak berafiliasi resmi dengan TikTok, Instagram, atau Meta. Gunakan untuk kebutuhan pengunduhan media pribadi yang sah.',
+                      'MyDownloader adalah aplikasi utilitas independen dan tidak berafiliasi resmi dengan TikTok, Instagram, Meta, atau platform lainnya. Gunakan untuk kebutuhan pengunduhan media pribadi yang sah.',
                       style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.4),
                     ),
                   ),
@@ -232,6 +352,57 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _GuideStep extends StatelessWidget {
+  final String step;
+  final String title;
+  final String desc;
+
+  const _GuideStep({
+    required this.step,
+    required this.title,
+    required this.desc,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            step,
+            style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                desc,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

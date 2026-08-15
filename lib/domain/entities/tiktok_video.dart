@@ -75,7 +75,9 @@ class TikTokVideo {
   String get bestVideoUrl => videoHdUrl?.isNotEmpty == true ? videoHdUrl! : videoUrl;
   bool get hasAudio => audioUrl != null && audioUrl!.isNotEmpty;
   bool get hasHd => videoHdUrl != null && videoHdUrl!.isNotEmpty;
-  bool get isSlide => images.isNotEmpty || contentType == MediaContentType.photos;
+  bool get isSlide => contentType == MediaContentType.photos && images.isNotEmpty;
+  bool get isVideo => contentType == MediaContentType.video;
+  bool get isAudio => contentType == MediaContentType.audio;
 
   String get platformDisplayName {
     switch (platform) {

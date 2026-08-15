@@ -158,6 +158,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           coverUrl: (res.data['thumbnail'] ?? '').toString(),
           videoUrl: vUrl,
           platform: MediaPlatform.tiktok,
+          contentType: MediaContentType.video,
         );
       }
     } catch (_) {}
@@ -191,7 +192,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
         final media = (map['graphql']?['shortcode_media'] ?? map['items']?[0]) as Map<String, dynamic>?;
 
         if (media != null) {
-          final isVideo = media['is_video'] == true;
+          final isVideo = media['is_video'] == true || (media['video_url'] != null && media['video_url'].toString().isNotEmpty);
           final videoUrl = (media['video_url'] ?? '').toString();
           final displayUrl = (media['display_url'] ?? media['display_resources']?.last?['src'] ?? '').toString();
           final caption = (media['edge_media_to_caption']?['edges']?[0]?['node']?['text'] ?? 'Instagram Post').toString();
@@ -274,9 +275,11 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
       final html = htmlResp.data.toString();
       final titleMatch = RegExp(r'<meta\s+property=[\"\x27]og:title[\"\x27]\s+content=[\"\x27](.*?)[\"\x27]', caseSensitive: false).firstMatch(html);
       final imgMatch = RegExp(r'<meta\s+property=[\"\x27]og:image[\"\x27]\s+content=[\"\x27](.*?)[\"\x27]', caseSensitive: false).firstMatch(html);
+      final vidMatch = RegExp(r'<meta\s+property=[\"\x27]og:video[\"\x27]\s+content=[\"\x27](.*?)[\"\x27]', caseSensitive: false).firstMatch(html);
 
       final title = titleMatch?.group(1)?.replaceAll('&amp;', '&').replaceAll('&quot;', '"') ?? 'Instagram Post';
       final cover = imgMatch?.group(1)?.replaceAll('&amp;', '&') ?? '';
+      final videoStream = vidMatch?.group(1)?.replaceAll('&amp;', '&');
 
       return TikTokVideoModel.fromInstagramData(
         id: shortcode,
@@ -286,9 +289,9 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
         authorUsername: '@instagram',
         authorAvatar: '',
         coverUrl: cover,
-        videoUrl: cover,
-        images: [cover],
-        isVideo: false,
+        videoUrl: videoStream ?? cover,
+        images: videoStream != null ? [] : [cover],
+        isVideo: videoStream != null,
       );
     } catch (_) {}
 
@@ -332,6 +335,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           videoUrl: videoUrl,
           videoHdUrl: hd,
           platform: MediaPlatform.facebook,
+          contentType: MediaContentType.video,
         );
       }
     } catch (_) {}
@@ -352,6 +356,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           videoUrl: hd ?? sd ?? '',
           videoHdUrl: hd,
           platform: MediaPlatform.facebook,
+          contentType: MediaContentType.video,
         );
       }
     } catch (_) {}
@@ -377,6 +382,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           coverUrl: '',
           videoUrl: videoUrl,
           platform: MediaPlatform.twitter,
+          contentType: MediaContentType.video,
         );
       }
     } catch (_) {}
@@ -407,6 +413,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           videoUrl: videoUrl,
           audioUrl: audioUrl.isNotEmpty ? audioUrl : null,
           platform: MediaPlatform.youtube,
+          contentType: MediaContentType.video,
         );
       }
     } catch (_) {}
@@ -424,6 +431,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
         final result = res.data['result'] as Map<String, dynamic>;
         final videoUrl = (result['video'] ?? result['url'] ?? '').toString();
         final thumb = (result['image'] ?? result['thumbnail'] ?? '').toString();
+        final isVid = videoUrl.isNotEmpty && (videoUrl.contains('.mp4') || !videoUrl.contains('.jpg'));
 
         return TikTokVideoModel.fromUniversalMedia(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -433,8 +441,9 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           authorUsername: '@threads',
           authorAvatar: '',
           coverUrl: thumb,
-          videoUrl: videoUrl.isNotEmpty ? videoUrl : thumb,
+          videoUrl: isVid ? videoUrl : thumb,
           platform: MediaPlatform.threads,
+          contentType: isVid ? MediaContentType.video : MediaContentType.photos,
         );
       }
     } catch (_) {}
@@ -443,28 +452,79 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 7. CapCut Handler
+  // 7. CapCut Handler (Resolves Templates & Videos)
   // ==========================================
   Future<TikTokVideoModel> _fetchCapCutDetails(String url) async {
+    // 1. Resolve redirect if short link (e.g. mobile.capcut.com/t/...)
+    final canonicalUrl = await UrlValidator.resolveToCanonicalUrl(url);
+
+    // 2. Try btch CapCut endpoint
     try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/capcut?url=${Uri.encodeComponent(url)}');
-      if (res.data is Map) {
+      final res = await apiClient.dio.get('$_btchBaseUrl/capcut?url=${Uri.encodeComponent(canonicalUrl)}');
+      if (res.data is Map && res.data['video_url'] != null) {
         final videoUrl = (res.data['video_url'] ?? res.data['url'] ?? '').toString();
+        if (videoUrl.isNotEmpty) {
+          return TikTokVideoModel.fromUniversalMedia(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            originalUrl: url,
+            title: (res.data['title'] ?? 'CapCut Template Video').toString(),
+            authorName: (res.data['author'] ?? 'CapCut Creator').toString(),
+            authorUsername: '@capcut',
+            authorAvatar: '',
+            coverUrl: (res.data['thumbnail'] ?? '').toString(),
+            videoUrl: videoUrl,
+            platform: MediaPlatform.capcut,
+            contentType: MediaContentType.video,
+          );
+        }
+      }
+    } catch (_) {}
+
+    // 3. Fallback: Parse CapCut Web HTML (Extract MP4 Video & Title)
+    try {
+      final resp = await apiClient.dio.get(
+        canonicalUrl,
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+        ),
+      );
+
+      final html = resp.data.toString();
+      final mp4Matches = RegExp(r'https?:\/\/[^\"\s\x27]+\.mp4[^\"\s\x27]*').allMatches(html);
+      String? foundMp4;
+      for (final m in mp4Matches) {
+        final u = m.group(0);
+        if (u != null && !u.contains('landing') && !u.contains('banner')) {
+          foundMp4 = u;
+          break;
+        }
+      }
+      foundMp4 ??= mp4Matches.isNotEmpty ? mp4Matches.first.group(0) : null;
+
+      final titleMatch = RegExp(r'<title>(.*?)</title>').firstMatch(html);
+      final coverMatch = RegExp(r'https?:\/\/[^\"\s\x27]+\.(webp|jpg|jpeg|png)').firstMatch(html);
+
+      if (foundMp4 != null && foundMp4.isNotEmpty) {
         return TikTokVideoModel.fromUniversalMedia(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           originalUrl: url,
-          title: (res.data['title'] ?? 'CapCut Template').toString(),
-          authorName: (res.data['author'] ?? 'CapCut Creator').toString(),
+          title: titleMatch?.group(1) ?? 'CapCut Template',
+          authorName: 'CapCut Creator',
           authorUsername: '@capcut',
           authorAvatar: '',
-          coverUrl: (res.data['thumbnail'] ?? '').toString(),
-          videoUrl: videoUrl,
+          coverUrl: coverMatch?.group(0) ?? '',
+          videoUrl: foundMp4,
           platform: MediaPlatform.capcut,
+          contentType: MediaContentType.video,
         );
       }
     } catch (_) {}
 
-    throw const ApiException('Gagal memproses template CapCut.');
+    throw const ApiException('Gagal memproses video template CapCut. Pastikan tautan masih aktif.');
   }
 
   // ==========================================
@@ -480,7 +540,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           originalUrl: url,
           title: (result['title'] ?? 'Spotify Track').toString(),
-          authorName: (result['artist'] ?? 'Artist').toString(),
+          authorName: (result['artist'] ?? 'Spotify Artist').toString(),
           authorUsername: '@spotify',
           authorAvatar: '',
           coverUrl: (result['cover'] ?? result['image'] ?? '').toString(),
@@ -571,6 +631,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           coverUrl: (result['thumbnail'] ?? '').toString(),
           videoUrl: videoUrl,
           platform: MediaPlatform.douyin,
+          contentType: MediaContentType.video,
         );
       }
     } catch (_) {}
@@ -597,6 +658,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           coverUrl: (result['thumbnail'] ?? '').toString(),
           videoUrl: videoUrl,
           platform: MediaPlatform.snackvideo,
+          contentType: MediaContentType.video,
         );
       }
     } catch (_) {}
@@ -623,6 +685,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           coverUrl: (result['thumbnail'] ?? '').toString(),
           videoUrl: videoUrl,
           platform: MediaPlatform.kuaishou,
+          contentType: MediaContentType.video,
         );
       }
     } catch (_) {}
@@ -661,17 +724,32 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
       final ogImage = RegExp(r'<meta\s+property=[\"\x27]og:image[\"\x27]\s+content=[\"\x27](.*?)[\"\x27]').firstMatch(html)?.group(1);
       final ogVideo = RegExp(r'<meta\s+property=[\"\x27]og:video[\"\x27]\s+content=[\"\x27](.*?)[\"\x27]').firstMatch(html)?.group(1);
 
-      if (ogVideo != null || ogImage != null) {
+      if (ogVideo != null && ogVideo.isNotEmpty) {
         return TikTokVideoModel.fromUniversalMedia(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           originalUrl: url,
-          title: ogTitle ?? 'Universal Media',
+          title: ogTitle ?? 'Universal Video',
           authorName: 'Web Media',
           authorUsername: '@web',
           authorAvatar: '',
-          coverUrl: ogImage ?? ogVideo ?? '',
-          videoUrl: ogVideo ?? ogImage ?? '',
+          coverUrl: ogImage ?? ogVideo,
+          videoUrl: ogVideo,
           platform: MediaPlatform.universal,
+          contentType: MediaContentType.video,
+        );
+      } else if (ogImage != null && ogImage.isNotEmpty) {
+        return TikTokVideoModel.fromUniversalMedia(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          originalUrl: url,
+          title: ogTitle ?? 'Universal Image',
+          authorName: 'Web Media',
+          authorUsername: '@web',
+          authorAvatar: '',
+          coverUrl: ogImage,
+          videoUrl: ogImage,
+          images: [ogImage],
+          platform: MediaPlatform.universal,
+          contentType: MediaContentType.photos,
         );
       }
     } catch (_) {}

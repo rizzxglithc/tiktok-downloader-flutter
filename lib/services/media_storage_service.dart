@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 
 class MediaStorageService {
   static const MethodChannel _channel = MethodChannel('com.rizz.tiktok_downloader/media');
@@ -72,6 +73,53 @@ class MediaStorageService {
     } catch (_) {
       return filePath;
     }
+  }
+
+  /// Share media file with 100% fallback reliability
+  static Future<bool> shareMediaFile({
+    required String filePath,
+    required String title,
+    String? mediaType,
+    String? fallbackUrl,
+  }) async {
+    final file = File(filePath);
+    final exists = file.existsSync();
+
+    if (exists) {
+      try {
+        final xfile = XFile(filePath);
+        await Share.shareXFiles(
+          [xfile],
+          text: 'Dibagikan via MyDownloader: $title',
+          subject: title,
+        );
+        return true;
+      } catch (_) {
+        // Fallback to Native Android FileProvider Share
+        try {
+          final mimeType = (mediaType == 'audio')
+              ? 'audio/mpeg'
+              : ((mediaType == 'image' || mediaType == 'photo') ? 'image/jpeg' : 'video/mp4');
+
+          final success = await _channel.invokeMethod<bool>('shareFile', {
+            'filePath': filePath,
+            'title': title,
+            'mimeType': mimeType,
+          });
+          if (success == true) return true;
+        } catch (_) {}
+      }
+    }
+
+    // If file is not local or sharing file failed, share the text/URL
+    if (fallbackUrl != null && fallbackUrl.isNotEmpty) {
+      try {
+        await Share.share('$title\n$fallbackUrl\n\nUnduh via MyDownloader');
+        return true;
+      } catch (_) {}
+    }
+
+    return false;
   }
 
   /// Trigger Android MediaScanner to update gallery index

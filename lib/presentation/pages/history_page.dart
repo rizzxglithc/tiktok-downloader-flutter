@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/formatters.dart';
+import '../../services/media_storage_service.dart';
 import '../providers/history_provider.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/custom_toast.dart';
@@ -44,7 +44,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final exists = file.existsSync();
 
     if (!exists) {
-      CustomToast.showError(context, 'File fisik telah dipindahkan atau dibuka langsung lewat Galeri HP.');
+      CustomToast.showError(context, 'File fisik tersimpan langsung di Galeri/Penyimpanan HP Anda.');
       return;
     }
 
@@ -67,11 +67,15 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
-  void _handleShare(String filePath, String title) {
-    if (filePath.isNotEmpty && File(filePath).existsSync()) {
-      Share.shareXFiles([XFile(filePath)], text: 'Dibagikan via MyDownloader: $title');
-    } else {
-      CustomToast.showError(context, 'File tidak ditemukan untuk dibagikan.');
+  Future<void> _handleShare(String filePath, String title, bool isVideo, String url) async {
+    final success = await MediaStorageService.shareMediaFile(
+      filePath: filePath,
+      title: title,
+      mediaType: isVideo ? 'video' : 'audio',
+      fallbackUrl: url,
+    );
+    if (!success && mounted) {
+      CustomToast.showInfo(context, 'Membuka menu bagikan...');
     }
   }
 
@@ -330,10 +334,12 @@ class _HistoryPageState extends State<HistoryPage> {
                             // Actions
                             IconButton(
                               icon: const Icon(Icons.share_rounded, color: AppColors.textSecondary, size: 18),
-                              onPressed: () => _handleShare(item.filePath, item.title),
+                              tooltip: 'Bagikan',
+                              onPressed: () => _handleShare(item.filePath, item.title, item.isVideo, item.url),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline_rounded, color: AppColors.textMuted, size: 18),
+                              tooltip: 'Hapus',
                               onPressed: () {
                                 historyProvider.deleteItem(item.id);
                                 CustomToast.showInfo(context, 'Item dihapus dari riwayat');
