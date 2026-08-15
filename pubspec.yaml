@@ -30,7 +30,6 @@ dependencies:
   share_plus: ^9.0.0
   shared_preferences: ^2.2.3
   permission_handler: ^11.3.1
-  gal: ^2.3.1
 
   # UI, Icons, Animations & Utilities
   intl: ^0.19.0

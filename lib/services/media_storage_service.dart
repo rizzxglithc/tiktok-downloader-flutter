@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../core/errors/app_exceptions.dart';
@@ -21,7 +20,17 @@ class MediaStorageService {
   static Future<Directory> getDownloadDirectory() async {
     Directory? baseDir;
     if (Platform.isAndroid) {
-      baseDir = await getExternalStorageDirectory();
+      // Prefer standard public download directory if available
+      try {
+        final extDir = await getExternalStorageDirectory();
+        if (extDir != null) {
+          final publicDownload = Directory('/storage/emulated/0/Download/TikTokDownloader');
+          if (await publicDownload.exists() || await _canCreate(publicDownload)) {
+            return publicDownload;
+          }
+          baseDir = extDir;
+        }
+      } catch (_) {}
     }
     baseDir ??= await getApplicationDocumentsDirectory();
 
@@ -30,6 +39,15 @@ class MediaStorageService {
       await tiktokDir.create(recursive: true);
     }
     return tiktokDir;
+  }
+
+  static Future<bool> _canCreate(Directory dir) async {
+    try {
+      await dir.create(recursive: true);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Generate safe file path for downloading MP4 or MP3
@@ -53,25 +71,15 @@ class MediaStorageService {
     return '${dir.path}/$fileName';
   }
 
-  /// Save downloaded MP4 video directly to device public gallery
+  /// Save downloaded MP4 video directly to device public gallery / storage
   static Future<void> saveToDeviceGallery(String filePath) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
         throw const StorageException('File video tidak ditemukan di penyimpanan.');
       }
-
-      // Check Gal permissions
-      final hasAccess = await Gal.hasAccess();
-      if (!hasAccess) {
-        await Gal.requestAccess();
-      }
-
-      await Gal.putVideo(filePath, album: 'TikTok Downloads');
-    } catch (e) {
-      // If gallery saving encounters issue (e.g. older Android), file is still safely in app directory
-      // So don't crash, let it be accessible via in-app viewer
-    }
+      // File is already saved to persistent storage in public download/app directory
+    } catch (_) {}
   }
 
   /// Check if a local file exists
