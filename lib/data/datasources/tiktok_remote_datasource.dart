@@ -15,8 +15,6 @@ abstract class TikTokRemoteDataSource {
 class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   final ApiClient apiClient;
 
-  static const String _btchBaseUrl = 'https://backend1.tioo.eu.org';
-
   TikTokRemoteDataSourceImpl({required this.apiClient});
 
   @override
@@ -62,7 +60,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 1. TikTok Handler (HD Video, Slides, Audio)
+  // 1. TikTok Handler (TikWM HD, Slides, MP3)
   // ==========================================
   Future<TikTokVideoModel> _fetchTikTokDetails(String url) async {
     final resolvedUrl = await UrlValidator.resolveToCanonicalUrl(url);
@@ -77,7 +75,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
     for (final endpoint in endpoints) {
       for (int attempt = 0; attempt < 2; attempt++) {
         if (attempt > 0) {
-          await Future.delayed(const Duration(milliseconds: 1300));
+          await Future.delayed(const Duration(milliseconds: 1200));
         }
 
         try {
@@ -99,7 +97,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
               sendTimeout: ApiConstants.connectTimeout,
               headers: {
                 'User-Agent':
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36',
                 'Referer': 'https://www.tikwm.com/',
                 'Origin': 'https://www.tikwm.com',
                 'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -142,37 +140,209 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
       }
     }
 
-    // Fallback: btch ttdl endpoint
+    throw lastException ?? const ApiException('Gagal memproses konten TikTok. Pastikan tautan benar dan publik.');
+  }
+
+  // ==========================================
+  // 2. CapCut Handler (3bic API & Web Scraper)
+  // ==========================================
+  Future<TikTokVideoModel> _fetchCapCutDetails(String url) async {
+    final resolvedUrl = await UrlValidator.resolveToCanonicalUrl(url);
+
+    // 1. User Scraper: 3bic API (https://3bic.com/api/download)
     try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/ttdl?url=${Uri.encodeComponent(resolvedUrl)}');
-      if (res.data is Map && res.data['video'] != null) {
-        final vList = res.data['video'] as List;
-        final vUrl = vList.isNotEmpty ? vList.first.toString() : '';
+      final response = await apiClient.dio.post(
+        'https://3bic.com/api/download',
+        data: jsonEncode({'url': resolvedUrl}),
+        options: Options(
+          contentType: Headers.jsonContentType,
+          headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        ),
+      );
+
+      final resData = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : (response.data is String ? jsonDecode(response.data) as Map<String, dynamic> : <String, dynamic>{});
+
+      final videoUrl = (resData['video_url'] ?? resData['download_url'] ?? resData['url'] ?? resData['play_url'] ?? resData['video'])?.toString();
+      if (videoUrl != null && videoUrl.isNotEmpty) {
+        final title = (resData['title'] ?? resData['name'] ?? 'CapCut Template').toString();
+        final cover = (resData['thumbnail'] ?? resData['cover'] ?? resData['image'] ?? '').toString();
+        final author = (resData['author'] ?? resData['author_name'] ?? 'CapCut Creator').toString();
+
         return TikTokVideoModel.fromUniversalMedia(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           originalUrl: url,
-          title: (res.data['title'] ?? 'TikTok Video').toString(),
-          authorName: 'TikTok Creator',
-          authorUsername: '@tiktok',
+          title: title,
+          authorName: author,
+          authorUsername: '@capcut',
           authorAvatar: '',
-          coverUrl: (res.data['thumbnail'] ?? '').toString(),
-          videoUrl: vUrl,
-          platform: MediaPlatform.tiktok,
+          coverUrl: cover,
+          videoUrl: videoUrl,
+          platform: MediaPlatform.capcut,
           contentType: MediaContentType.video,
         );
       }
     } catch (_) {}
 
-    throw lastException ?? const ApiException('Gagal memproses konten TikTok. Pastikan tautan benar dan publik.');
+    // 2. Direct HTML Extraction
+    try {
+      final resp = await apiClient.dio.get(
+        resolvedUrl,
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+        ),
+      );
+
+      final html = resp.data.toString();
+      final mp4Matches = RegExp(r'https?:\/\/[^\"\s\x27]+\.mp4[^\"\s\x27]*').allMatches(html);
+      String? foundMp4;
+      for (final m in mp4Matches) {
+        final u = m.group(0);
+        if (u != null && !u.contains('landing') && !u.contains('banner')) {
+          foundMp4 = u;
+          break;
+        }
+      }
+      foundMp4 ??= mp4Matches.isNotEmpty ? mp4Matches.first.group(0) : null;
+
+      final titleMatch = RegExp(r'<title>(.*?)</title>').firstMatch(html);
+      final coverMatch = RegExp(r'https?:\/\/[^\"\s\x27]+\.(webp|jpg|jpeg|png)').firstMatch(html);
+
+      if (foundMp4 != null && foundMp4.isNotEmpty) {
+        return TikTokVideoModel.fromUniversalMedia(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          originalUrl: url,
+          title: titleMatch?.group(1) ?? 'CapCut Template',
+          authorName: 'CapCut Creator',
+          authorUsername: '@capcut',
+          authorAvatar: '',
+          coverUrl: coverMatch?.group(0) ?? '',
+          videoUrl: foundMp4,
+          platform: MediaPlatform.capcut,
+          contentType: MediaContentType.video,
+        );
+      }
+    } catch (_) {}
+
+    throw const ApiException('Gagal memproses template CapCut. Pastikan tautan aktif dan publik.');
   }
 
   // ==========================================
-  // 2. Instagram Handler (Reels, Posts, Carousel)
+  // 3. Facebook Handler (GetMyFB Scraper)
+  // ==========================================
+  Future<TikTokVideoModel> _fetchFacebookDetails(String url) async {
+    // 1. User Scraper: GetMyFB API (https://getmyfb.com/process)
+    try {
+      final body = 'id=${Uri.encodeComponent(url)}&locale=en';
+      final response = await apiClient.dio.post(
+        'https://getmyfb.com/process',
+        data: body,
+        options: Options(
+          contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+          responseType: ResponseType.plain,
+          headers: {
+            'accept': 'text/html, */*; q=0.01',
+            'hx-current-url': 'https://getmyfb.com/',
+            'hx-request': 'true',
+            'hx-target': url.contains('share') ? '#private-video-downloader' : '#target',
+            'hx-trigger': 'form',
+            'hx-post': '/process',
+            'hx-swap': 'innerHTML',
+            'origin': 'https://getmyfb.com',
+            'referer': 'https://getmyfb.com/',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        ),
+      );
+
+      final markup = response.data.toString();
+      final linkMatches = RegExp(r'href=[\"\x27](https?:\/\/[^\s\"\x27]+)[\"\x27]').allMatches(markup);
+      final List<String> videoLinks = [];
+      for (final m in linkMatches) {
+        final href = m.group(1);
+        if (href != null && (href.contains('ssscdn.io') || href.contains('.mp4') || href.contains('fbcdn'))) {
+          videoLinks.add(href);
+        }
+      }
+
+      if (videoLinks.isNotEmpty) {
+        final hdUrl = videoLinks.first;
+        final sdUrl = videoLinks.length > 1 ? videoLinks[1] : hdUrl;
+        final titleMatch = RegExp(r'<p[^>]*class=[\"\x27]results-item-text[\"\x27][^>]*>(.*?)<\/p>').firstMatch(markup);
+
+        return TikTokVideoModel.fromUniversalMedia(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          originalUrl: url,
+          title: titleMatch?.group(1)?.trim() ?? 'Facebook Video',
+          authorName: 'Facebook Creator',
+          authorUsername: '@facebook',
+          authorAvatar: '',
+          coverUrl: '',
+          videoUrl: hdUrl,
+          videoHdUrl: hdUrl,
+          platform: MediaPlatform.facebook,
+          contentType: MediaContentType.video,
+        );
+      }
+    } catch (_) {}
+
+    // 2. Direct HTML Extraction
+    try {
+      final resp = await apiClient.dio.get(
+        url,
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+        ),
+      );
+
+      final html = resp.data.toString();
+      final hdMatch = RegExp(r'"playable_url_quality_hd":"([^"]+)"').firstMatch(html);
+      final sdMatch = RegExp(r'"playable_url":"([^"]+)"').firstMatch(html);
+      final titleMatch = RegExp(r'<title>(.*?)</title>').firstMatch(html);
+
+      final hd = hdMatch?.group(1)?.replaceAll(r'\u0026', '&');
+      final sd = sdMatch?.group(1)?.replaceAll(r'\u0026', '&');
+      final videoUrl = hd ?? sd;
+
+      if (videoUrl != null && videoUrl.isNotEmpty) {
+        return TikTokVideoModel.fromUniversalMedia(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          originalUrl: url,
+          title: titleMatch?.group(1) ?? 'Facebook Video',
+          authorName: 'Facebook Creator',
+          authorUsername: '@facebook',
+          authorAvatar: '',
+          coverUrl: '',
+          videoUrl: videoUrl,
+          videoHdUrl: hd,
+          platform: MediaPlatform.facebook,
+          contentType: MediaContentType.video,
+        );
+      }
+    } catch (_) {}
+
+    throw const ApiException('Gagal memproses video Facebook. Pastikan video bersifat publik.');
+  }
+
+  // ==========================================
+  // 4. Instagram Handler (Reels, Posts, Carousel)
   // ==========================================
   Future<TikTokVideoModel> _fetchInstagramDetails(String url) async {
     final shortcode = UrlValidator.extractInstagramShortcode(url) ?? DateTime.now().millisecondsSinceEpoch.toString();
 
-    // Strategy A: Direct Web JSON
+    // 1. Direct Web JSON with Mobile Headers
     try {
       final igJsonUrl = 'https://www.instagram.com/p/$shortcode/?__a=1&__d=dis';
       final response = await apiClient.dio.get(
@@ -226,40 +396,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
       }
     } catch (_) {}
 
-    // Strategy B: btch igdl endpoint
-    try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/igdl?url=${Uri.encodeComponent(url)}');
-      if (res.data is List && (res.data as List).isNotEmpty) {
-        final items = res.data as List;
-        final first = items.first as Map<String, dynamic>;
-        final vUrl = (first['url'] ?? '').toString();
-        final thumb = (first['thumbnail'] ?? '').toString();
-
-        final List<String> allMedia = [];
-        for (final it in items) {
-          if (it is Map && it['url'] != null) {
-            allMedia.add(it['url'].toString());
-          }
-        }
-
-        final isVideo = vUrl.contains('.mp4') || !vUrl.contains('.jpg');
-
-        return TikTokVideoModel.fromInstagramData(
-          id: shortcode,
-          originalUrl: url,
-          title: 'Instagram Media',
-          authorName: 'Instagram User',
-          authorUsername: '@instagram',
-          authorAvatar: '',
-          coverUrl: thumb.isNotEmpty ? thumb : vUrl,
-          videoUrl: vUrl,
-          images: allMedia.length > 1 ? allMedia : [],
-          isVideo: isVideo,
-        );
-      }
-    } catch (_) {}
-
-    // Strategy C: HTML Stream extraction
+    // 2. OpenGraph Meta Stream Parser
     try {
       final htmlResp = await apiClient.dio.get(
         url,
@@ -299,79 +436,48 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 3. Facebook Handler (fbdown)
+  // 5. Twitter / X Handler (xdl)
   // ==========================================
-  Future<TikTokVideoModel> _fetchFacebookDetails(String url) async {
+  Future<TikTokVideoModel> _fetchTwitterDetails(String url) async {
+    // 1. Try TwDown API
     try {
-      final resp = await apiClient.dio.get(
-        url,
+      final formData = 'URL=${Uri.encodeComponent(url)}';
+      final response = await apiClient.dio.post(
+        'https://twdown.net/download.php',
+        data: formData,
         options: Options(
+          contentType: Headers.formUrlEncodedContentType,
           responseType: ResponseType.plain,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           },
         ),
       );
 
-      final html = resp.data.toString();
-      final hdMatch = RegExp(r'"playable_url_quality_hd":"([^"]+)"').firstMatch(html);
-      final sdMatch = RegExp(r'"playable_url":"([^"]+)"').firstMatch(html);
-      final titleMatch = RegExp(r'<title>(.*?)</title>').firstMatch(html);
+      final html = response.data.toString();
+      final hdMatch = RegExp(r'href=[\"\x27](https?:\/\/[^\s\"\x27]+\.mp4[^\s\"\x27]*)[\"\x27]').firstMatch(html);
+      final titleMatch = RegExp(r'<p[^>]*>(.*?)<\/p>').firstMatch(html);
 
-      final hd = hdMatch?.group(1)?.replaceAll(r'\u0026', '&');
-      final sd = sdMatch?.group(1)?.replaceAll(r'\u0026', '&');
-      final videoUrl = hd ?? sd;
-
-      if (videoUrl != null && videoUrl.isNotEmpty) {
+      if (hdMatch != null) {
         return TikTokVideoModel.fromUniversalMedia(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           originalUrl: url,
-          title: titleMatch?.group(1) ?? 'Facebook Video',
-          authorName: 'Facebook Creator',
-          authorUsername: '@facebook',
+          title: titleMatch?.group(1)?.trim() ?? 'Twitter / X Media',
+          authorName: 'Twitter User',
+          authorUsername: '@x',
           authorAvatar: '',
           coverUrl: '',
-          videoUrl: videoUrl,
-          videoHdUrl: hd,
-          platform: MediaPlatform.facebook,
+          videoUrl: hdMatch.group(1)!,
+          platform: MediaPlatform.twitter,
           contentType: MediaContentType.video,
         );
       }
     } catch (_) {}
 
+    // 2. Fallback
     try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/fbdown?url=${Uri.encodeComponent(url)}');
-      if (res.data is Map && (res.data['HD'] != null || res.data['Normal_video'] != null)) {
-        final hd = res.data['HD']?.toString();
-        final sd = res.data['Normal_video']?.toString();
-        return TikTokVideoModel.fromUniversalMedia(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          originalUrl: url,
-          title: 'Facebook Video',
-          authorName: 'Facebook',
-          authorUsername: '@facebook',
-          authorAvatar: '',
-          coverUrl: '',
-          videoUrl: hd ?? sd ?? '',
-          videoHdUrl: hd,
-          platform: MediaPlatform.facebook,
-          contentType: MediaContentType.video,
-        );
-      }
-    } catch (_) {}
-
-    throw const ApiException('Gagal memproses video Facebook. Pastikan video bersifat publik.');
-  }
-
-  // ==========================================
-  // 4. Twitter / X Handler
-  // ==========================================
-  Future<TikTokVideoModel> _fetchTwitterDetails(String url) async {
-    try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/twitter?url=${Uri.encodeComponent(url)}');
+      final res = await apiClient.dio.get('https://backend1.tioo.eu.org/twitter?url=${Uri.encodeComponent(url)}');
       if (res.data is Map && res.data['url'] != null) {
-        final videoUrl = res.data['url'].toString();
         return TikTokVideoModel.fromUniversalMedia(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           originalUrl: url,
@@ -380,7 +486,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           authorUsername: '@x',
           authorAvatar: '',
           coverUrl: '',
-          videoUrl: videoUrl,
+          videoUrl: res.data['url'].toString(),
           platform: MediaPlatform.twitter,
           contentType: MediaContentType.video,
         );
@@ -391,11 +497,152 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 5. YouTube Handler
+  // 6. SoundCloud Handler (downcloudme.com)
+  // ==========================================
+  Future<TikTokVideoModel> _fetchSoundCloudDetails(String url) async {
+    try {
+      // 1. Fetch DownCloud page to extract verify nonce
+      final pageResp = await apiClient.dio.get(
+        'https://downcloudme.com',
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {
+            'user-agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36',
+            'accept': 'text/html',
+          },
+        ),
+      );
+
+      final pageHtml = pageResp.data.toString();
+      final nonceMatch = RegExp(r'name=[\"\x27]downloader_verify[\"\x27]\s+value=[\"\x27]([^\"]+)[\"\x27]').firstMatch(pageHtml);
+      final nonce = nonceMatch?.group(1);
+
+      if (nonce != null && nonce.isNotEmpty) {
+        final formBody = 'url=${Uri.encodeComponent(url)}&downloader_verify=$nonce&_wp_http_referer=/download-track';
+        final postResp = await apiClient.dio.post(
+          'https://downcloudme.com',
+          data: formBody,
+          options: Options(
+            contentType: 'application/x-www-form-urlencoded',
+            responseType: ResponseType.plain,
+            headers: {
+              'origin': 'https://downcloudme.com',
+              'referer': 'https://downcloudme.com',
+              'user-agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36',
+            },
+          ),
+        );
+
+        final postResult = postResp.data.toString();
+        final directMatch = RegExp(r'data-direct=[\"\x27](https?:\/\/[^\s\"\x27]+\.mp3[^\s\"\x27]*)[\"\x27]').firstMatch(postResult)
+            ?? RegExp(r'href=[\"\x27](https?:\/\/[^\s\"\x27]+\.mp3[^\s\"\x27]*)[\"\x27]').firstMatch(postResult);
+
+        if (directMatch != null) {
+          final audioUrl = directMatch.group(1)!;
+          return TikTokVideoModel.fromUniversalMedia(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            originalUrl: url,
+            title: 'SoundCloud Track',
+            authorName: 'SoundCloud Artist',
+            authorUsername: '@soundcloud',
+            authorAvatar: '',
+            coverUrl: '',
+            videoUrl: '',
+            audioUrl: audioUrl,
+            platform: MediaPlatform.soundcloud,
+            contentType: MediaContentType.audio,
+          );
+        }
+      }
+    } catch (_) {}
+
+    throw const ApiException('Gagal memproses lagu SoundCloud.');
+  }
+
+  // ==========================================
+  // 7. Spotify Handler (spotyloader & musicfab)
+  // ==========================================
+  Future<TikTokVideoModel> _fetchSpotifyDetails(String url) async {
+    // 1. Try Spotyloader API
+    try {
+      final resp = await apiClient.dio.post(
+        'https://spotyloader.com/api/download',
+        data: jsonEncode({'url': url}),
+        options: Options(
+          contentType: Headers.jsonContentType,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Origin': 'https://spotyloader.com',
+            'Referer': 'https://spotyloader.com/',
+          },
+        ),
+      );
+
+      final data = resp.data is Map ? resp.data as Map : jsonDecode(resp.data.toString()) as Map;
+      final downloadUrl = (data['download_url'] ?? data['download'] ?? data['url'])?.toString();
+
+      if (downloadUrl != null && downloadUrl.isNotEmpty) {
+        return TikTokVideoModel.fromUniversalMedia(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          originalUrl: url,
+          title: (data['title'] ?? data['name'] ?? 'Spotify Track').toString(),
+          authorName: (data['artist'] ?? 'Spotify Artist').toString(),
+          authorUsername: '@spotify',
+          authorAvatar: '',
+          coverUrl: (data['cover'] ?? data['image'] ?? '').toString(),
+          videoUrl: '',
+          audioUrl: downloadUrl,
+          platform: MediaPlatform.spotify,
+          contentType: MediaContentType.audio,
+        );
+      }
+    } catch (_) {}
+
+    // 2. Try MusicFab API
+    try {
+      final resp = await apiClient.dio.post(
+        'https://musicfab.io/api/spotify',
+        data: jsonEncode({'url': url}),
+        options: Options(
+          contentType: Headers.jsonContentType,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Origin': 'https://musicfab.io',
+            'Referer': 'https://musicfab.io/spotify-to-mp3',
+          },
+        ),
+      );
+
+      final data = resp.data is Map ? resp.data as Map : jsonDecode(resp.data.toString()) as Map;
+      final meta = data['data']?['metadata'] as Map?;
+      final downloadUrl = meta?['download']?.toString();
+
+      if (downloadUrl != null && downloadUrl.isNotEmpty) {
+        return TikTokVideoModel.fromUniversalMedia(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          originalUrl: url,
+          title: (meta?['name'] ?? 'Spotify Track').toString(),
+          authorName: (meta?['artist'] ?? 'Spotify Artist').toString(),
+          authorUsername: '@spotify',
+          authorAvatar: '',
+          coverUrl: (meta?['image'] ?? '').toString(),
+          videoUrl: '',
+          audioUrl: downloadUrl,
+          platform: MediaPlatform.spotify,
+          contentType: MediaContentType.audio,
+        );
+      }
+    } catch (_) {}
+
+    throw const ApiException('Gagal memproses lagu Spotify.');
+  }
+
+  // ==========================================
+  // 8. YouTube Handler
   // ==========================================
   Future<TikTokVideoModel> _fetchYouTubeDetails(String url) async {
     try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/youtube?url=${Uri.encodeComponent(url)}');
+      final res = await apiClient.dio.get('https://backend1.tioo.eu.org/youtube?url=${Uri.encodeComponent(url)}');
       if (res.data is Map) {
         final title = (res.data['title'] ?? 'YouTube Video').toString();
         final thumb = (res.data['thumbnail'] ?? '').toString();
@@ -422,11 +669,11 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 6. Threads Handler
+  // 9. Threads Handler
   // ==========================================
   Future<TikTokVideoModel> _fetchThreadsDetails(String url) async {
     try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/threads?url=${Uri.encodeComponent(url)}');
+      final res = await apiClient.dio.get('https://backend1.tioo.eu.org/threads?url=${Uri.encodeComponent(url)}');
       if (res.data is Map && res.data['result'] != null) {
         final result = res.data['result'] as Map<String, dynamic>;
         final videoUrl = (result['video'] ?? result['url'] ?? '').toString();
@@ -452,143 +699,11 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 7. CapCut Handler (Resolves Templates & Videos)
-  // ==========================================
-  Future<TikTokVideoModel> _fetchCapCutDetails(String url) async {
-    // 1. Resolve redirect if short link (e.g. mobile.capcut.com/t/...)
-    final canonicalUrl = await UrlValidator.resolveToCanonicalUrl(url);
-
-    // 2. Try btch CapCut endpoint
-    try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/capcut?url=${Uri.encodeComponent(canonicalUrl)}');
-      if (res.data is Map && res.data['video_url'] != null) {
-        final videoUrl = (res.data['video_url'] ?? res.data['url'] ?? '').toString();
-        if (videoUrl.isNotEmpty) {
-          return TikTokVideoModel.fromUniversalMedia(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            originalUrl: url,
-            title: (res.data['title'] ?? 'CapCut Template Video').toString(),
-            authorName: (res.data['author'] ?? 'CapCut Creator').toString(),
-            authorUsername: '@capcut',
-            authorAvatar: '',
-            coverUrl: (res.data['thumbnail'] ?? '').toString(),
-            videoUrl: videoUrl,
-            platform: MediaPlatform.capcut,
-            contentType: MediaContentType.video,
-          );
-        }
-      }
-    } catch (_) {}
-
-    // 3. Fallback: Parse CapCut Web HTML (Extract MP4 Video & Title)
-    try {
-      final resp = await apiClient.dio.get(
-        canonicalUrl,
-        options: Options(
-          responseType: ResponseType.plain,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
-          },
-        ),
-      );
-
-      final html = resp.data.toString();
-      final mp4Matches = RegExp(r'https?:\/\/[^\"\s\x27]+\.mp4[^\"\s\x27]*').allMatches(html);
-      String? foundMp4;
-      for (final m in mp4Matches) {
-        final u = m.group(0);
-        if (u != null && !u.contains('landing') && !u.contains('banner')) {
-          foundMp4 = u;
-          break;
-        }
-      }
-      foundMp4 ??= mp4Matches.isNotEmpty ? mp4Matches.first.group(0) : null;
-
-      final titleMatch = RegExp(r'<title>(.*?)</title>').firstMatch(html);
-      final coverMatch = RegExp(r'https?:\/\/[^\"\s\x27]+\.(webp|jpg|jpeg|png)').firstMatch(html);
-
-      if (foundMp4 != null && foundMp4.isNotEmpty) {
-        return TikTokVideoModel.fromUniversalMedia(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          originalUrl: url,
-          title: titleMatch?.group(1) ?? 'CapCut Template',
-          authorName: 'CapCut Creator',
-          authorUsername: '@capcut',
-          authorAvatar: '',
-          coverUrl: coverMatch?.group(0) ?? '',
-          videoUrl: foundMp4,
-          platform: MediaPlatform.capcut,
-          contentType: MediaContentType.video,
-        );
-      }
-    } catch (_) {}
-
-    throw const ApiException('Gagal memproses video template CapCut. Pastikan tautan masih aktif.');
-  }
-
-  // ==========================================
-  // 8. Spotify Handler
-  // ==========================================
-  Future<TikTokVideoModel> _fetchSpotifyDetails(String url) async {
-    try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/spotify?url=${Uri.encodeComponent(url)}');
-      if (res.data is Map && res.data['result'] != null) {
-        final result = res.data['result'] as Map<String, dynamic>;
-        final audioUrl = (result['download'] ?? result['url'] ?? '').toString();
-        return TikTokVideoModel.fromUniversalMedia(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          originalUrl: url,
-          title: (result['title'] ?? 'Spotify Track').toString(),
-          authorName: (result['artist'] ?? 'Spotify Artist').toString(),
-          authorUsername: '@spotify',
-          authorAvatar: '',
-          coverUrl: (result['cover'] ?? result['image'] ?? '').toString(),
-          videoUrl: '',
-          audioUrl: audioUrl,
-          platform: MediaPlatform.spotify,
-          contentType: MediaContentType.audio,
-        );
-      }
-    } catch (_) {}
-
-    throw const ApiException('Gagal memproses lagu Spotify.');
-  }
-
-  // ==========================================
-  // 9. SoundCloud Handler
-  // ==========================================
-  Future<TikTokVideoModel> _fetchSoundCloudDetails(String url) async {
-    try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/soundcloud?url=${Uri.encodeComponent(url)}');
-      if (res.data is Map && res.data['result'] != null) {
-        final result = res.data['result'] as Map<String, dynamic>;
-        final audioUrl = (result['download'] ?? result['url'] ?? '').toString();
-        return TikTokVideoModel.fromUniversalMedia(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          originalUrl: url,
-          title: (result['title'] ?? 'SoundCloud Track').toString(),
-          authorName: 'SoundCloud Artist',
-          authorUsername: '@soundcloud',
-          authorAvatar: '',
-          coverUrl: (result['thumbnail'] ?? '').toString(),
-          videoUrl: '',
-          audioUrl: audioUrl,
-          platform: MediaPlatform.soundcloud,
-          contentType: MediaContentType.audio,
-        );
-      }
-    } catch (_) {}
-
-    throw const ApiException('Gagal memproses lagu SoundCloud.');
-  }
-
-  // ==========================================
   // 10. Pinterest Handler
   // ==========================================
   Future<TikTokVideoModel> _fetchPinterestDetails(String url) async {
     try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/pinterest?url=${Uri.encodeComponent(url)}');
+      final res = await apiClient.dio.get('https://backend1.tioo.eu.org/pinterest?url=${Uri.encodeComponent(url)}');
       if (res.data is Map && res.data['result'] != null) {
         final result = res.data['result'];
         final mediaUrl = (result is String ? result : (result['url'] ?? result['image'])).toString();
@@ -617,7 +732,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   // ==========================================
   Future<TikTokVideoModel> _fetchDouyinDetails(String url) async {
     try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/douyin?url=${Uri.encodeComponent(url)}');
+      final res = await apiClient.dio.get('https://backend1.tioo.eu.org/douyin?url=${Uri.encodeComponent(url)}');
       if (res.data is Map && res.data['result'] != null) {
         final result = res.data['result'] as Map<String, dynamic>;
         final videoUrl = (result['video'] ?? result['url'] ?? '').toString();
@@ -644,7 +759,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   // ==========================================
   Future<TikTokVideoModel> _fetchSnackVideoDetails(String url) async {
     try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/snackvideo?url=${Uri.encodeComponent(url)}');
+      final res = await apiClient.dio.get('https://backend1.tioo.eu.org/snackvideo?url=${Uri.encodeComponent(url)}');
       if (res.data is Map && res.data['result'] != null) {
         final result = res.data['result'] as Map<String, dynamic>;
         final videoUrl = (result['video'] ?? result['url'] ?? '').toString();
@@ -671,7 +786,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   // ==========================================
   Future<TikTokVideoModel> _fetchKuaishouDetails(String url) async {
     try {
-      final res = await apiClient.dio.get('$_btchBaseUrl/kuaishou?url=${Uri.encodeComponent(url)}');
+      final res = await apiClient.dio.get('https://backend1.tioo.eu.org/kuaishou?url=${Uri.encodeComponent(url)}');
       if (res.data is Map && res.data['result'] != null) {
         final result = res.data['result'] as Map<String, dynamic>;
         final videoUrl = (result['video'] ?? result['url'] ?? '').toString();
