@@ -4,14 +4,14 @@ import '../../core/constants/app_colors.dart';
 class GradientProgressBar extends StatelessWidget {
   final double progress; // 0.0 to 1.0
   final double height;
-  final Gradient? gradient;
+  final double borderRadius;
   final Color? backgroundColor;
 
   const GradientProgressBar({
     super.key,
     required this.progress,
-    this.height = 8.0,
-    this.gradient,
+    this.height = 6.0,
+    this.borderRadius = 8.0,
     this.backgroundColor,
   });
 
@@ -23,32 +23,24 @@ class GradientProgressBar extends StatelessWidget {
       height: height,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: backgroundColor ?? Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(height / 2),
+        color: backgroundColor ?? AppColors.surfaceHover,
+        borderRadius: BorderRadius.circular(borderRadius),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              width: constraints.maxWidth * clampedProgress,
-              height: height,
-              decoration: BoxDecoration(
-                gradient: gradient ?? AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(height / 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withOpacity(0.4),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+      child: FractionallySizedBox(
+        alignment: Alignment.centerLeft,
+        widthFactor: clampedProgress,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(borderRadius),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.white.withOpacity(0.3),
+                blurRadius: 6,
               ),
-            ),
-          );
-        },
+            ],
+          ),
+        ),
       ),
     );
   }

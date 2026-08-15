@@ -1,11 +1,10 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/download_item.dart';
-import '../../domain/usecases/delete_history_usecase.dart';
 import '../../domain/usecases/get_history_usecase.dart';
+import '../../domain/usecases/delete_history_usecase.dart';
 import '../../services/media_storage_service.dart';
+
+enum HistoryFilter { all, video, audio }
 
 class HistoryProvider extends ChangeNotifier {
   final GetHistoryUseCase _getHistoryUseCase;
@@ -13,8 +12,9 @@ class HistoryProvider extends ChangeNotifier {
 
   List<DownloadItem> _items = [];
   bool _isLoading = false;
+  String _errorMessage = '';
+  HistoryFilter _selectedFilter = HistoryFilter.all;
   String _searchQuery = '';
-  DownloadType? _selectedFilter;
 
   HistoryProvider({
     required GetHistoryUseCase getHistoryUseCase,
@@ -24,37 +24,47 @@ class HistoryProvider extends ChangeNotifier {
     loadHistory();
   }
 
-  List<DownloadItem> get items {
-    var list = _items;
-    if (_selectedFilter != null) {
-      list = list.where((item) => item.type == _selectedFilter).toList();
-    }
-    if (_searchQuery.trim().isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
-      list = list
-          .where((item) =>
-              item.title.toLowerCase().contains(q) ||
-              item.author.toLowerCase().contains(q))
-          .toList();
-    }
-    return list;
-  }
-
+  List<DownloadItem> get allItems => _items;
   bool get isLoading => _isLoading;
+  String get errorMessage => _errorMessage;
+  HistoryFilter get selectedFilter => _selectedFilter;
   String get searchQuery => _searchQuery;
-  DownloadType? get selectedFilter => _selectedFilter;
-  int get totalCount => _items.length;
+
+  List<DownloadItem> get filteredItems {
+    return _items.where((item) {
+      // 1. Filter Type
+      if (_selectedFilter == HistoryFilter.video && !item.isVideo) return false;
+      if (_selectedFilter == HistoryFilter.audio && item.isVideo) return false;
+
+      // 2. Search Query
+      if (_searchQuery.isNotEmpty) {
+        final query = _searchQuery.toLowerCase();
+        final matchTitle = item.title.toLowerCase().contains(query);
+        final matchAuthor = item.authorName.toLowerCase().contains(query);
+        return matchTitle || matchAuthor;
+      }
+      return true;
+    }).toList();
+  }
 
   Future<void> loadHistory() async {
     _isLoading = true;
+    _errorMessage = '';
     notifyListeners();
 
     try {
       _items = await _getHistoryUseCase.execute();
-    } catch (_) {
-      _items = [];
+    } catch (e) {
+      _errorMessage = e.toString();
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void setFilter(HistoryFilter filter) {
+    if (_selectedFilter != filter) {
+      _selectedFilter = filter;
       notifyListeners();
     }
   }
@@ -64,57 +74,26 @@ class HistoryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setFilter(DownloadType? type) {
-    _selectedFilter = type;
-    notifyListeners();
-  }
-
-  Future<void> deleteItem(String id, {bool deleteFile = true}) async {
-    final itemIndex = _items.indexWhere((i) => i.id == id);
+  Future<void> deleteItem(String id) async {
+    final itemIndex = _items.indexWhere((element) => element.id == id);
     if (itemIndex != -1) {
       final item = _items[itemIndex];
-      if (deleteFile && item.filePath.isNotEmpty) {
-        await MediaStorageService.deleteFile(item.filePath);
-      }
-      await _deleteHistoryUseCase.execute(id);
       _items.removeAt(itemIndex);
       notifyListeners();
+
+      // Delete physical file if exists
+      if (item.savedPath.isNotEmpty) {
+        await MediaStorageService.deleteFile(item.savedPath);
+      }
+
+      // Delete from SharedPreferences
+      await _deleteHistoryUseCase.execute(id);
     }
   }
 
-  Future<void> clearAll({bool deleteFiles = true}) async {
-    if (deleteFiles) {
-      for (var item in _items) {
-        if (item.filePath.isNotEmpty) {
-          await MediaStorageService.deleteFile(item.filePath);
-        }
-      }
-    }
-    await _deleteHistoryUseCase.clearAll();
+  Future<void> clearAll() async {
     _items.clear();
     notifyListeners();
-  }
-
-  /// Open downloaded file with system media player
-  Future<OpenResult> openFile(DownloadItem item) async {
-    final file = File(item.filePath);
-    if (!await file.exists()) {
-      return OpenResult(
-        type: ResultType.fileNotFound,
-        message: 'File tidak ditemukan di penyimpanan perangkat.',
-      );
-    }
-    return await OpenFilex.open(item.filePath);
-  }
-
-  /// Share file via native system share sheet
-  Future<void> shareFile(DownloadItem item) async {
-    final file = File(item.filePath);
-    if (await file.exists()) {
-      await Share.shareXFiles(
-        [XFile(item.filePath)],
-        text: '${item.title} (Downloaded via TikTok Downloader)',
-      );
-    }
+    await _deleteHistoryUseCase.clearAll();
   }
 }

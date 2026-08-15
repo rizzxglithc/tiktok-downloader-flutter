@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../core/constants/app_colors.dart';
 
 class GlassButton extends StatelessWidget {
@@ -7,13 +6,10 @@ class GlassButton extends StatelessWidget {
   final IconData? icon;
   final VoidCallback? onPressed;
   final bool isLoading;
-  final Gradient? gradient;
-  final Color? backgroundColor;
-  final Color textColor;
+  final bool isSecondary;
   final double height;
   final double? width;
   final double borderRadius;
-  final bool isSecondary;
 
   const GlassButton({
     super.key,
@@ -21,80 +17,76 @@ class GlassButton extends StatelessWidget {
     this.icon,
     this.onPressed,
     this.isLoading = false,
-    this.gradient,
-    this.backgroundColor,
-    this.textColor = Colors.black,
-    this.height = 54.0,
-    this.width,
-    this.borderRadius = 16.0,
     this.isSecondary = false,
+    this.height = 52.0,
+    this.width,
+    this.borderRadius = 14.0,
   });
 
   @override
   Widget build(BuildContext context) {
-    final effectiveGradient = isSecondary
-        ? null
-        : (gradient ?? AppColors.primaryGradient);
+    final isEnabled = onPressed != null && !isLoading;
 
-    final effectiveColor = isSecondary
-        ? (backgroundColor ?? AppColors.glassSurfaceHighlight)
-        : (gradient == null && backgroundColor != null ? backgroundColor : null);
+    final bgColor = isSecondary ? AppColors.surfaceElevated : AppColors.primary;
+    final fgColor = isSecondary ? AppColors.textPrimary : AppColors.onPrimary;
+    final borderColor = isSecondary ? AppColors.borderLight : Colors.transparent;
 
-    return Container(
-      height: height,
-      width: width ?? double.infinity,
-      decoration: BoxDecoration(
-        gradient: effectiveGradient,
-        color: effectiveColor,
-        borderRadius: BorderRadius.circular(borderRadius),
-        border: isSecondary
-            ? Border.all(color: AppColors.glassBorder, width: 1.2)
-            : null,
-        boxShadow: isSecondary
-            ? null
-            : [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.35),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 150),
+      opacity: isEnabled ? 1.0 : 0.45,
+      child: Container(
+        height: height,
+        width: width,
+        decoration: BoxDecoration(
+          color: bgColor,
           borderRadius: BorderRadius.circular(borderRadius),
-          onTap: isLoading ? null : onPressed,
-          splashColor: Colors.white.withOpacity(0.2),
-          child: Center(
-            child: isLoading
-                ? const SpinKitThreeBounce(
-                    color: Colors.black,
-                    size: 24,
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (icon != null) ...[
-                        Icon(
-                          icon,
-                          color: isSecondary ? AppColors.textPrimary : textColor,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                      ],
-                      Text(
-                        text,
-                        style: TextStyle(
-                          color: isSecondary ? AppColors.textPrimary : textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
+          border: Border.all(color: borderColor, width: 1.0),
+          boxShadow: isSecondary
+              ? []
+              : [
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.12),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
                   ),
+                ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: isEnabled ? onPressed : null,
+            borderRadius: BorderRadius.circular(borderRadius),
+            splashColor: isSecondary ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+            child: Center(
+              child: isLoading
+                  ? SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        valueColor: AlwaysStoppedAnimation<Color>(fgColor),
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (icon != null) ...[
+                          Icon(icon, color: fgColor, size: 20),
+                          const SizedBox(width: 10),
+                        ],
+                        Text(
+                          text,
+                          style: TextStyle(
+                            color: fgColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),

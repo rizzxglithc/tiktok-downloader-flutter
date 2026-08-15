@@ -1,37 +1,36 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../core/errors/app_exceptions.dart';
 
 class MediaStorageService {
+  static const MethodChannel _channel = MethodChannel('com.rizz.tiktok_downloader/media');
+
   /// Request storage / media permissions according to Android version
   static Future<bool> requestStoragePermission() async {
     if (Platform.isAndroid) {
-      if (await Permission.videos.request().isGranted ||
-          await Permission.storage.request().isGranted) {
+      final statuses = await [
+        Permission.videos,
+        Permission.audio,
+        Permission.storage,
+      ].request();
+
+      if (statuses[Permission.videos]?.isGranted == true ||
+          statuses[Permission.storage]?.isGranted == true) {
         return true;
       }
-      return false;
+      return true; // Proceed with Scoped Storage fallback
     }
     return true;
   }
 
-  /// Get the base download directory for the app
+  /// Get the app download staging directory
   static Future<Directory> getDownloadDirectory() async {
     Directory? baseDir;
-    if (Platform.isAndroid) {
-      // Prefer standard public download directory if available
-      try {
-        final extDir = await getExternalStorageDirectory();
-        if (extDir != null) {
-          final publicDownload = Directory('/storage/emulated/0/Download/TikTokDownloader');
-          if (await publicDownload.exists() || await _canCreate(publicDownload)) {
-            return publicDownload;
-          }
-          baseDir = extDir;
-        }
-      } catch (_) {}
-    }
+    try {
+      baseDir = await getExternalStorageDirectory();
+    } catch (_) {}
     baseDir ??= await getApplicationDocumentsDirectory();
 
     final tiktokDir = Directory('${baseDir.path}/TikTokDownloader');
@@ -39,15 +38,6 @@ class MediaStorageService {
       await tiktokDir.create(recursive: true);
     }
     return tiktokDir;
-  }
-
-  static Future<bool> _canCreate(Directory dir) async {
-    try {
-      await dir.create(recursive: true);
-      return true;
-    } catch (_) {
-      return false;
-    }
   }
 
   /// Generate safe file path for downloading MP4 or MP3
@@ -64,22 +54,42 @@ class MediaStorageService {
         .replaceAll(RegExp(r'\s+'), '_')
         .trim();
     
-    final cleanTitle = safeTitle.length > 30 ? safeTitle.substring(0, 30) : safeTitle;
+    final cleanTitle = safeTitle.length > 25 ? safeTitle.substring(0, 25) : safeTitle;
     final ext = isVideo ? 'mp4' : 'mp3';
     final fileName = 'tiktok_${id}_${cleanTitle}_${DateTime.now().millisecondsSinceEpoch}.$ext';
     
     return '${dir.path}/$fileName';
   }
 
-  /// Save downloaded MP4 video directly to device public gallery / storage
-  static Future<void> saveToDeviceGallery(String filePath) async {
-    try {
-      final file = File(filePath);
-      if (!await file.exists()) {
-        throw const StorageException('File video tidak ditemukan di penyimpanan.');
+  /// Save downloaded MP4/MP3 to Android MediaStore/Gallery so it appears in Photos & Gallery apps
+  static Future<String> saveToDeviceGallery({
+    required String filePath,
+    required bool isVideo,
+    required String title,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw const StorageException('File tidak ditemukan di penyimpanan lokal.');
+    }
+
+    if (Platform.isAndroid) {
+      try {
+        final result = await _channel.invokeMethod<String>('saveToGallery', {
+          'filePath': filePath,
+          'isVideo': isVideo,
+          'title': title,
+        });
+        if (result != null && result.isNotEmpty) {
+          return result;
+        }
+      } catch (e) {
+        // Fallback: trigger media scanner
+        try {
+          await _channel.invokeMethod('scanFile', {'filePath': filePath});
+        } catch (_) {}
       }
-      // File is already saved to persistent storage in public download/app directory
-    } catch (_) {}
+    }
+    return filePath;
   }
 
   /// Check if a local file exists

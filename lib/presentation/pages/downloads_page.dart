@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/formatters.dart';
+import '../../services/download_engine.dart';
 import '../providers/download_provider.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/gradient_progress_bar.dart';
@@ -13,195 +13,130 @@ class DownloadsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final downloadProvider = context.watch<DownloadProvider>();
-    final activeList = downloadProvider.activeDownloads;
+    final activeDownloads = downloadProvider.activeDownloads;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Unduhan Aktif'),
+        title: const Text('Sedang Mengunduh'),
+        automaticallyImplyLeading: false,
       ),
-      body: SafeArea(
-        child: activeList.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
+      body: activeDownloads.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.border, width: 1),
+                    ),
+                    child: const Icon(
+                      Icons.cloud_download_outlined,
+                      color: AppColors.textMuted,
+                      size: 40,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Tidak ada proses unduhan aktif',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Unduhan yang sedang berjalan akan tampil di sini',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  ),
+                ],
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+              itemCount: activeDownloads.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final item = activeDownloads[index];
+                final task = item.task;
+
+                return GlassCard(
+                  padding: const EdgeInsets.all(16),
+                  borderRadius: 16,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.08),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.primary.withOpacity(0.2),
-                            width: 1.5,
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              item.isVideo ? Icons.movie_outlined : Icons.audiotrack_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
-                        ),
-                        child: const Icon(
-                          Icons.downloading_rounded,
-                          color: AppColors.primary,
-                          size: 48,
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title.isNotEmpty ? item.title : 'TikTok Download',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  item.authorName,
+                                  style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: AppColors.textMuted, size: 20),
+                            onPressed: () => downloadProvider.cancelDownload(item.id),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Tidak Ada Unduhan Berjalan',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      const SizedBox(height: 14),
+                      GradientProgressBar(
+                        progress: task.progress,
+                        height: 5,
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Video atau audio yang sedang Anda download akan muncul di sini secara real-time.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 13,
-                          height: 1.4,
-                        ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${(task.progress * 100).toStringAsFixed(1)}% (${Formatters.formatBytes(task.downloadedBytes)} / ${Formatters.formatBytes(task.totalBytes)})',
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                          ),
+                          Text(
+                            task.speedString,
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ),
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                itemCount: activeList.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 14),
-                itemBuilder: (context, index) {
-                  final item = activeList[index];
-                  final speed = downloadProvider.getSpeed(item.id);
-                  final speedText = speed > 0 ? '${Formatters.formatBytes(speed.toInt())}/s' : 'Menyiapkan...';
-
-                  return GlassCard(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            // Thumbnail
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                width: 56,
-                                height: 56,
-                                color: AppColors.surface,
-                                child: item.thumbnailUrl.isNotEmpty
-                                    ? CachedNetworkImage(
-                                        imageUrl: item.thumbnailUrl,
-                                        fit: BoxFit.cover,
-                                        placeholder: (context, url) => Container(color: AppColors.surface),
-                                        errorWidget: (context, url, error) => const Icon(
-                                          Icons.movie_rounded,
-                                          color: AppColors.textMuted,
-                                        ),
-                                      )
-                                    : const Icon(Icons.movie_rounded, color: AppColors.textMuted),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-
-                            // Title & Details
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: item.isVideo
-                                              ? AppColors.primary.withOpacity(0.15)
-                                              : AppColors.secondary.withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          item.isVideo ? 'MP4 VIDEO' : 'MP3 AUDIO',
-                                          style: TextStyle(
-                                            color: item.isVideo ? AppColors.primary : AppColors.secondary,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        speedText,
-                                        style: const TextStyle(
-                                          color: AppColors.textAccent,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // Cancel Button
-                            IconButton(
-                              icon: const Icon(Icons.cancel_outlined, color: AppColors.error, size: 22),
-                              onPressed: () {
-                                downloadProvider.cancelDownload(item.id);
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Progress Bar
-                        GradientProgressBar(
-                          progress: item.progress,
-                          height: 6,
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Progress metrics
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${(item.progress * 100).toStringAsFixed(1)}%',
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Text(
-                              item.totalBytes > 0
-                                  ? '${Formatters.formatBytes(item.downloadedBytes)} / ${Formatters.formatBytes(item.totalBytes)}'
-                                  : Formatters.formatBytes(item.downloadedBytes),
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-      ),
+                );
+              },
+            ),
     );
   }
 }

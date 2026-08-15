@@ -1,18 +1,36 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/download_item.dart';
 import '../../domain/entities/tiktok_video.dart';
 import '../../domain/usecases/save_history_usecase.dart';
 import '../../services/download_engine.dart';
 import '../../services/media_storage_service.dart';
-import 'history_provider.dart';
+
+class ActiveDownload {
+  final String id;
+  final String title;
+  final String authorName;
+  final String thumbnailUrl;
+  final bool isVideo;
+  final DownloadTask task;
+
+  ActiveDownload({
+    required this.id,
+    required this.title,
+    required this.authorName,
+    required this.thumbnailUrl,
+    required this.isVideo,
+    required this.task,
+  });
+}
 
 class DownloadProvider extends ChangeNotifier {
   final DownloadEngine _downloadEngine;
   final SaveHistoryUseCase _saveHistoryUseCase;
 
-  // Active Downloads: id -> DownloadItem
-  final Map<String, DownloadItem> _activeDownloads = {};
-  final Map<String, double> _downloadSpeeds = {};
+  final Map<String, ActiveDownload> _activeDownloads = {};
+  VoidCallback? onDownloadCompleted;
 
   DownloadProvider({
     required DownloadEngine downloadEngine,
@@ -20,110 +38,117 @@ class DownloadProvider extends ChangeNotifier {
   })  : _downloadEngine = downloadEngine,
         _saveHistoryUseCase = saveHistoryUseCase;
 
-  List<DownloadItem> get activeDownloads => _activeDownloads.values.toList();
+  List<ActiveDownload> get activeDownloads => _activeDownloads.values.toList();
   bool get hasActiveDownloads => _activeDownloads.isNotEmpty;
 
-  DownloadItem? getItem(String id) => _activeDownloads[id];
-  double getSpeed(String id) => _downloadSpeeds[id] ?? 0.0;
+  ActiveDownload? getDownload(String id) => _activeDownloads[id];
 
-  /// Start downloading MP4 Video or MP3 Audio
-  Future<String?> startDownload({
+  Future<bool> startDownload({
     required TikTokVideo video,
-    required DownloadType type,
-    bool isHd = true,
-    bool autoSaveToGallery = true,
-    HistoryProvider? historyProvider,
+    required bool isVideo,
+    required bool isHd,
+    required BuildContext context,
   }) async {
-    final isVideo = type == DownloadType.video;
-    final downloadUrl = isVideo
-        ? (isHd && video.videoHdUrl?.isNotEmpty == true ? video.videoHdUrl! : video.videoUrl)
-        : (video.audioUrl ?? video.videoUrl);
-
-    if (downloadUrl.isEmpty) {
-      throw Exception('URL media tidak tersedia untuk tipe ini.');
+    // 1. Request Media Permissions
+    final hasPermission = await MediaStorageService.requestStoragePermission();
+    if (!hasPermission && !kIsWeb) {
+      // Still proceed with scoped storage
     }
 
-    final taskId = '${video.id}_${type.name}_${DateTime.now().millisecondsSinceEpoch}';
-    final targetPath = await MediaStorageService.generateFilePath(
+    final downloadUrl = isVideo
+        ? (isHd && video.hdVideoUrl != null && video.hdVideoUrl!.isNotEmpty
+            ? video.hdVideoUrl!
+            : video.videoUrl)
+        : (video.musicUrl ?? video.videoUrl);
+
+    if (downloadUrl.isEmpty) return false;
+
+    // 2. Generate local file path
+    final downloadPath = await MediaStorageService.generateFilePath(
       id: video.id,
       title: video.title,
       isVideo: isVideo,
     );
 
-    final item = DownloadItem(
-      id: taskId,
-      title: video.title,
-      author: video.authorUsername,
-      thumbnailUrl: video.coverUrl,
-      sourceUrl: video.url,
-      downloadUrl: downloadUrl,
-      filePath: targetPath,
-      type: type,
-      totalBytes: video.fileSize,
-      downloadedBytes: 0,
-      progress: 0.0,
-      status: DownloadStatus.downloading,
-      createdAt: DateTime.now(),
+    final downloadId = '${video.id}_${isVideo ? (isHd ? "hd" : "sd") : "mp3"}';
+
+    // Cancel existing task if already running
+    if (_activeDownloads.containsKey(downloadId)) {
+      return false;
+    }
+
+    // 3. Start streaming download task
+    final task = _downloadEngine.startDownload(
+      id: downloadId,
+      url: downloadUrl,
+      savePath: downloadPath,
+      headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Referer': 'https://www.tiktok.com/',
+      },
     );
 
-    _activeDownloads[taskId] = item;
-    _downloadSpeeds[taskId] = 0.0;
+    final activeItem = ActiveDownload(
+      id: downloadId,
+      title: video.title,
+      authorName: video.authorNickname.isNotEmpty ? video.authorNickname : video.authorUniqueId,
+      thumbnailUrl: video.coverUrl,
+      isVideo: isVideo,
+      task: task,
+    );
+
+    _activeDownloads[downloadId] = activeItem;
     notifyListeners();
 
-    try {
-      final savedPath = await _downloadEngine.startDownload(
-        item: item,
-        autoSaveToGallery: autoSaveToGallery,
-        onProgress: (id, received, total, progress, speed) {
-          if (_activeDownloads.containsKey(id)) {
-            _activeDownloads[id] = _activeDownloads[id]!.copyWith(
-              downloadedBytes: received,
-              totalBytes: total,
-              progress: progress,
-            );
-            _downloadSpeeds[id] = speed;
-            notifyListeners();
+    // 4. Attach state listeners
+    task.addListener(() async {
+      notifyListeners();
+
+      if (task.status == DownloadStatus.completed) {
+        // Save to Android MediaStore / Gallery
+        String finalSavedPath = downloadPath;
+        try {
+          final galleryResult = await MediaStorageService.saveToDeviceGallery(
+            filePath: downloadPath,
+            isVideo: isVideo,
+            title: video.title,
+          );
+          if (galleryResult.isNotEmpty) {
+            finalSavedPath = galleryResult;
           }
-        },
-      );
+        } catch (_) {}
 
-      // Successfully finished
-      final completedItem = item.copyWith(
-        filePath: savedPath,
-        progress: 1.0,
-        status: DownloadStatus.completed,
-        downloadedBytes: item.totalBytes > 0 ? item.totalBytes : item.downloadedBytes,
-      );
+        // Save to History database
+        final historyItem = DownloadItem(
+          id: downloadId,
+          title: video.title.isNotEmpty ? video.title : 'TikTok ${isVideo ? "Video" : "Audio"}',
+          authorName: video.authorNickname.isNotEmpty ? video.authorNickname : '@${video.authorUniqueId}',
+          thumbnailUrl: video.coverUrl,
+          savedPath: finalSavedPath,
+          downloadedAt: DateTime.now(),
+          fileSizeBytes: task.totalBytes > 0 ? task.totalBytes : (isVideo ? (isHd ? video.hdSizeBytes : video.sizeBytes) : 0),
+          isVideo: isVideo,
+        );
 
-      _activeDownloads.remove(taskId);
-      _downloadSpeeds.remove(taskId);
-      notifyListeners();
+        await _saveHistoryUseCase.execute(historyItem);
 
-      // Save to persistent history
-      await _saveHistoryUseCase.execute(completedItem);
-      historyProvider?.loadHistory();
+        _activeDownloads.remove(downloadId);
+        notifyListeners();
+        onDownloadCompleted?.call();
+      } else if (task.status == DownloadStatus.failed || task.status == DownloadStatus.cancelled) {
+        _activeDownloads.remove(downloadId);
+        notifyListeners();
+      }
+    });
 
-      return savedPath;
-    } catch (e) {
-      final failedItem = item.copyWith(
-        status: DownloadStatus.failed,
-        errorMessage: e.toString(),
-      );
-
-      _activeDownloads.remove(taskId);
-      _downloadSpeeds.remove(taskId);
-      notifyListeners();
-
-      rethrow;
-    }
+    return true;
   }
 
-  /// Cancel an ongoing download
   void cancelDownload(String id) {
     if (_activeDownloads.containsKey(id)) {
-      _downloadEngine.cancelDownload(id);
+      _activeDownloads[id]?.task.cancel();
       _activeDownloads.remove(id);
-      _downloadSpeeds.remove(id);
       notifyListeners();
     }
   }

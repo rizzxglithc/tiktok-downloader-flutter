@@ -1,54 +1,62 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Backgrounds
-  static const Color background = Color(0xFF090B10);
-  static const Color backgroundSecondary = Color(0xFF0F141F);
-  static const Color surface = Color(0xFF161D2E);
+  // Pure Monochrome Dark Palette
+  static const Color background = Color(0xFF000000);
+  static const Color backgroundSecondary = Color(0xFF09090B);
+  static const Color backgroundElevated = Color(0xFF121214);
 
-  // Glassmorphic Surfaces
-  static final Color glassSurface = const Color(0xFF1E2638).withOpacity(0.45);
-  static final Color glassSurfaceHighlight = const Color(0xFF2B364E).withOpacity(0.55);
-  static final Color glassBorder = Colors.white.withOpacity(0.12);
-  static final Color glassBorderActive = const Color(0xFF00F2FE).withOpacity(0.4);
+  // Surfaces & Glass Cards
+  static const Color surface = Color(0xFF141416);
+  static const Color surfaceElevated = Color(0xFF1C1C1F);
+  static const Color surfaceHover = Color(0xFF26262B);
 
-  // Brand & Accent Gradients
-  static const Color primary = Color(0xFF00F2FE); // Vibrant Cyan
-  static const Color primaryDark = Color(0xFF4FACFE);
-  static const Color secondary = Color(0xFF9D4EDD); // Electric Violet
-  static const Color accent = Color(0xFF00F5D4); // Neon Emerald
-  static const Color error = Color(0xFFFF4B72); // Soft Red
-  static const Color warning = Color(0xFFFFB703); // Golden Amber
-  static const Color success = Color(0xFF06D6A0); // Bright Green
+  // Borders & Dividers
+  static const Color border = Color(0xFF27272A);
+  static const Color borderLight = Color(0xFF3F3F46);
 
-  // Gradients
+  // High-Contrast Primary & Accents (Black & White)
+  static const Color primary = Color(0xFFFFFFFF);
+  static const Color onPrimary = Color(0xFF000000);
+  
+  static const Color secondary = Color(0xFFE4E4E7);
+  static const Color onSecondary = Color(0xFF09090B);
+
+  // Monochromatic Glass Overlay
+  static final Color glassFill = const Color(0xFFFFFFFF).withOpacity(0.04);
+  static final Color glassBorder = const Color(0xFFFFFFFF).withOpacity(0.10);
+  static final Color glassFillActive = const Color(0xFFFFFFFF).withOpacity(0.08);
+
+  // Typography
+  static const Color textPrimary = Color(0xFFFFFFFF);
+  static const Color textSecondary = Color(0xFFA1A1AA);
+  static const Color textMuted = Color(0xFF71717A);
+  static const Color textDisabled = Color(0xFF52525B);
+
+  // Semantic
+  static const Color success = Color(0xFFE4E4E7);
+  static const Color error = Color(0xFFF87171);
+  static const Color warning = Color(0xFFFBBF24);
+
+  // Gradients (Monochrome Silver/White/Dark)
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF00F2FE), Color(0xFF4FACFE)],
+    colors: [Color(0xFFFFFFFF), Color(0xFFD4D4D8)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const LinearGradient violetGradient = LinearGradient(
-    colors: [Color(0xFF9D4EDD), Color(0xFF5A189A)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static const LinearGradient accentGradient = LinearGradient(
-    colors: [Color(0xFF00F5D4), Color(0xFF00B4D8)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static const LinearGradient backgroundGradient = LinearGradient(
-    colors: [Color(0xFF090B10), Color(0xFF0F1424), Color(0xFF090B10)],
+  static const LinearGradient darkCardGradient = LinearGradient(
+    colors: [Color(0xFF18181B), Color(0xFF09090B)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
-  // Text Colors
-  static const Color textPrimary = Color(0xFFF8FAFC);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF64748B);
-  static const Color textAccent = Color(0xFF38BDF8);
+  static final LinearGradient glassGradient = LinearGradient(
+    colors: [
+      const Color(0xFFFFFFFF).withOpacity(0.07),
+      const Color(0xFFFFFFFF).withOpacity(0.02),
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }
