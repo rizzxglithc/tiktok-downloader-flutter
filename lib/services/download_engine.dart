@@ -72,9 +72,13 @@ class DownloadEngine {
         if (await tempFile.exists()) {
           final targetFile = await tempFile.rename(item.filePath);
 
-          // Save to device gallery if MP4 video
-          if (item.isVideo && autoSaveToGallery) {
-            await MediaStorageService.saveToDeviceGallery(targetFile.path);
+          // Save to device gallery if MP4 video or audio
+          if (autoSaveToGallery) {
+            await MediaStorageService.saveToDeviceGallery(
+              filePath: targetFile.path,
+              isVideo: item.isVideo,
+              title: item.title,
+            );
           }
 
           _cancelTokens.remove(item.id);
@@ -87,7 +91,6 @@ class DownloadEngine {
       }
     } on DioException catch (e) {
       _cancelTokens.remove(item.id);
-      // Clean up partial temp file
       await MediaStorageService.deleteFile(tempFilePath);
 
       if (CancelToken.isCancel(e)) {

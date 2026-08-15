@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/formatters.dart';
-import '../../services/download_engine.dart';
 import '../providers/download_provider.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/gradient_progress_bar.dart';
@@ -61,8 +60,8 @@ class DownloadsPage extends StatelessWidget {
               itemCount: activeDownloads.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                final item = activeDownloads[index];
-                final task = item.task;
+                final state = activeDownloads[index];
+                final item = state.item;
 
                 return GlassCard(
                   padding: const EdgeInsets.all(16),
@@ -101,7 +100,7 @@ class DownloadsPage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  item.authorName,
+                                  item.author,
                                   style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                                 ),
                               ],
@@ -115,7 +114,7 @@ class DownloadsPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       GradientProgressBar(
-                        progress: task.progress,
+                        progress: state.progress,
                         height: 5,
                       ),
                       const SizedBox(height: 10),
@@ -123,11 +122,11 @@ class DownloadsPage extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            '${(task.progress * 100).toStringAsFixed(1)}% (${Formatters.formatBytes(task.downloadedBytes)} / ${Formatters.formatBytes(task.totalBytes)})',
+                            '${(state.progress * 100).toStringAsFixed(1)}% (${Formatters.formatBytes(state.downloadedBytes)} / ${Formatters.formatBytes(state.totalBytes)})',
                             style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
                           ),
                           Text(
-                            task.speedString,
+                            state.speedString,
                             style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
                           ),
                         ],

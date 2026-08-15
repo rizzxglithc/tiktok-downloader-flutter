@@ -7,6 +7,7 @@ import '../../core/errors/app_exceptions.dart';
 abstract class LocalHistoryDataSource {
   Future<List<DownloadItemModel>> getHistory();
   Future<void> saveHistoryItem(DownloadItem item);
+  Future<void> updateHistoryItem(DownloadItem item);
   Future<void> deleteHistoryItem(String id);
   Future<void> clearHistory();
 }
@@ -45,7 +46,6 @@ class LocalHistoryDataSourceImpl implements LocalHistoryDataSource {
     try {
       final currentList = await getHistory();
       currentList.removeWhere((element) => element.id == item.id);
-      
       currentList.insert(0, DownloadItemModel.fromEntity(item));
 
       final stringList = currentList.map((e) => jsonEncode(e.toJson())).toList();
@@ -53,6 +53,11 @@ class LocalHistoryDataSourceImpl implements LocalHistoryDataSource {
     } catch (e) {
       throw StorageException('Gagal menyimpan ke riwayat: ${e.toString()}');
     }
+  }
+
+  @override
+  Future<void> updateHistoryItem(DownloadItem item) async {
+    await saveHistoryItem(item);
   }
 
   @override

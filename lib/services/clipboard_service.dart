@@ -23,6 +23,12 @@ class ClipboardService {
     }
   }
 
+  /// Get clipboard text helper
+  static Future<String> getClipboardText() async {
+    final raw = await getRawClipboardText();
+    return raw?.trim() ?? '';
+  }
+
   /// Copy text to system clipboard
   static Future<void> copyText(String text) async {
     await Clipboard.setData(ClipboardData(text: text));

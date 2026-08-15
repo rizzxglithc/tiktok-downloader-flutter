@@ -81,6 +81,11 @@ class TikTokProvider extends ChangeNotifier {
     }
   }
 
+  /// Alias for fetchVideo
+  Future<bool> fetchVideoInfo(String url) async {
+    return await fetchVideo(url);
+  }
+
   void clearResult() {
     _state = TikTokState.initial;
     _currentVideo = null;

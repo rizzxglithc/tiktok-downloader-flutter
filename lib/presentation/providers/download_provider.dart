@@ -4,44 +4,52 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/download_item.dart';
 import '../../domain/entities/tiktok_video.dart';
 import '../../domain/usecases/save_history_usecase.dart';
-import '../../services/download_engine.dart' as engine;
+import '../../services/download_engine.dart';
 import '../../services/media_storage_service.dart';
 
-class ActiveDownload {
-  final String id;
-  final String title;
-  final String authorName;
-  final String thumbnailUrl;
-  final bool isVideo;
-  final engine.DownloadTask task;
+class ActiveDownloadState {
+  final DownloadItem item;
+  double progress;
+  double speedBytesPerSec;
+  int downloadedBytes;
+  int totalBytes;
 
-  ActiveDownload({
-    required this.id,
-    required this.title,
-    required this.authorName,
-    required this.thumbnailUrl,
-    required this.isVideo,
-    required this.task,
+  ActiveDownloadState({
+    required this.item,
+    this.progress = 0.0,
+    this.speedBytesPerSec = 0.0,
+    this.downloadedBytes = 0,
+    this.totalBytes = 0,
   });
+
+  String get speedString {
+    if (speedBytesPerSec < 1024) {
+      return '${speedBytesPerSec.toStringAsFixed(0)} B/s';
+    } else if (speedBytesPerSec < 1024 * 1024) {
+      return '${(speedBytesPerSec / 1024).toStringAsFixed(1)} KB/s';
+    } else {
+      return '${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2)} MB/s';
+    }
+  }
 }
 
 class DownloadProvider extends ChangeNotifier {
-  final engine.DownloadEngine _downloadEngine;
+  final DownloadEngine _downloadEngine;
   final SaveHistoryUseCase _saveHistoryUseCase;
 
-  final Map<String, ActiveDownload> _activeDownloads = {};
+  final Map<String, ActiveDownloadState> _activeDownloads = {};
   VoidCallback? onDownloadCompleted;
 
   DownloadProvider({
-    required engine.DownloadEngine downloadEngine,
+    required DownloadEngine downloadEngine,
     required SaveHistoryUseCase saveHistoryUseCase,
   })  : _downloadEngine = downloadEngine,
         _saveHistoryUseCase = saveHistoryUseCase;
 
-  List<ActiveDownload> get activeDownloads => _activeDownloads.values.toList();
+  List<ActiveDownloadState> get activeDownloads => _activeDownloads.values.toList();
   bool get hasActiveDownloads => _activeDownloads.isNotEmpty;
 
-  ActiveDownload? getDownload(String id) => _activeDownloads[id];
+  ActiveDownloadState? getDownload(String id) => _activeDownloads[id];
 
   Future<bool> startDownload({
     required TikTokVideo video,
@@ -70,79 +78,59 @@ class DownloadProvider extends ChangeNotifier {
 
     final downloadId = '${video.id}_${isVideo ? (isHd ? "hd" : "sd") : "mp3"}';
 
-    // Cancel existing task if already running
     if (_activeDownloads.containsKey(downloadId)) {
       return false;
     }
 
-    // 3. Start streaming download task
-    final task = _downloadEngine.startDownload(
+    final downloadItem = DownloadItem(
       id: downloadId,
-      url: downloadUrl,
-      savePath: downloadPath,
-      headers: {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Referer': 'https://www.tiktok.com/',
-      },
-    );
-
-    final activeItem = ActiveDownload(
-      id: downloadId,
-      title: video.title,
-      authorName: video.authorName.isNotEmpty ? video.authorName : video.authorUsername,
+      title: video.title.isNotEmpty ? video.title : 'TikTok ${isVideo ? "Video" : "Audio"}',
+      author: video.authorName.isNotEmpty ? video.authorName : '@${video.authorUsername}',
       thumbnailUrl: video.coverUrl,
-      isVideo: isVideo,
-      task: task,
+      sourceUrl: video.url,
+      downloadUrl: downloadUrl,
+      filePath: downloadPath,
+      type: isVideo ? DownloadType.video : DownloadType.audio,
+      totalBytes: isVideo ? (isHd ? (video.fileSize > 0 ? video.fileSize : 0) : video.fileSize) : 0,
+      downloadedBytes: 0,
+      progress: 0.0,
+      status: DownloadStatus.downloading,
+      createdAt: DateTime.now(),
     );
 
-    _activeDownloads[downloadId] = activeItem;
+    final state = ActiveDownloadState(item: downloadItem);
+    _activeDownloads[downloadId] = state;
     notifyListeners();
 
-    // 4. Attach state listeners
-    task.addListener(() async {
+    // 3. Launch async streaming download
+    _downloadEngine.startDownload(
+      item: downloadItem,
+      onProgress: (id, received, total, progress, speed) {
+        final current = _activeDownloads[id];
+        if (current != null) {
+          current.downloadedBytes = received;
+          current.totalBytes = total;
+          current.progress = progress;
+          current.speedBytesPerSec = speed;
+          notifyListeners();
+        }
+      },
+    ).then((finalPath) async {
+      // Completed successfully
+      final completedItem = downloadItem.copyWith(
+        filePath: finalPath,
+        status: DownloadStatus.completed,
+        progress: 1.0,
+      );
+
+      await _saveHistoryUseCase.execute(completedItem);
+
+      _activeDownloads.remove(downloadId);
       notifyListeners();
-
-      if (task.status == engine.DownloadStatus.completed) {
-        // Save to Android MediaStore / Gallery
-        String finalSavedPath = downloadPath;
-        try {
-          final galleryResult = await MediaStorageService.saveToDeviceGallery(
-            filePath: downloadPath,
-            isVideo: isVideo,
-            title: video.title,
-          );
-          if (galleryResult.isNotEmpty) {
-            finalSavedPath = galleryResult;
-          }
-        } catch (_) {}
-
-        // Save to History database
-        final historyItem = DownloadItem(
-          id: downloadId,
-          title: video.title.isNotEmpty ? video.title : 'TikTok ${isVideo ? "Video" : "Audio"}',
-          author: video.authorName.isNotEmpty ? video.authorName : '@${video.authorUsername}',
-          thumbnailUrl: video.coverUrl,
-          sourceUrl: video.url,
-          downloadUrl: downloadUrl,
-          filePath: finalSavedPath,
-          type: isVideo ? DownloadType.video : DownloadType.audio,
-          totalBytes: task.totalBytes > 0 ? task.totalBytes : video.fileSize,
-          downloadedBytes: task.downloadedBytes,
-          progress: 1.0,
-          status: DownloadStatus.completed,
-          createdAt: DateTime.now(),
-        );
-
-        await _saveHistoryUseCase.execute(historyItem);
-
-        _activeDownloads.remove(downloadId);
-        notifyListeners();
-        onDownloadCompleted?.call();
-      } else if (task.status == engine.DownloadStatus.failed || task.status == engine.DownloadStatus.cancelled) {
-        _activeDownloads.remove(downloadId);
-        notifyListeners();
-      }
+      onDownloadCompleted?.call();
+    }).catchError((e) {
+      _activeDownloads.remove(downloadId);
+      notifyListeners();
     });
 
     return true;
@@ -150,7 +138,7 @@ class DownloadProvider extends ChangeNotifier {
 
   void cancelDownload(String id) {
     if (_activeDownloads.containsKey(id)) {
-      _activeDownloads[id]?.task.cancel();
+      _downloadEngine.cancelDownload(id);
       _activeDownloads.remove(id);
       notifyListeners();
     }
