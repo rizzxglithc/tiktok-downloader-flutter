@@ -380,6 +380,8 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
             }
           }
 
+          final audioUrl = (media['clips_music_attribution_info']?['audio_url'] ?? media['audio_src'] ?? (isVideo ? videoUrl : null))?.toString();
+
           return TikTokVideoModel.fromInstagramData(
             id: shortcode,
             originalUrl: url,
@@ -389,6 +391,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
             authorAvatar: (owner['profile_pic_url'] ?? '').toString(),
             coverUrl: displayUrl.isNotEmpty ? displayUrl : videoUrl,
             videoUrl: videoUrl.isNotEmpty ? videoUrl : displayUrl,
+            audioUrl: audioUrl,
             images: carouselImages,
             isVideo: isVideo,
           );
@@ -427,6 +430,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
         authorAvatar: '',
         coverUrl: cover,
         videoUrl: videoStream ?? cover,
+        audioUrl: videoStream,
         images: videoStream != null ? [] : [cover],
         isVideo: videoStream != null,
       );

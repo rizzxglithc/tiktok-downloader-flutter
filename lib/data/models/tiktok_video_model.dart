@@ -44,21 +44,23 @@ class TikTokVideoModel extends TikTokVideo {
     final authorUsername = (author['unique_id'] ?? author['username'] ?? 'tiktok_user').toString();
     final authorAvatar = (author['avatar'] ?? author['avatar_thumb'] ?? '').toString();
 
-    // Photos / Slide Carousel Check
+    // Photos / Slide Carousel Check (Only a slide if 2 or more images exist)
     final List<String> imagesList = [];
     if (data['images'] is List) {
       for (final img in (data['images'] as List)) {
         if (img != null) {
-          String imgUrl = img.toString();
-          if (imgUrl.isNotEmpty && !imgUrl.startsWith('http')) {
-            imgUrl = 'https://www.tikwm.com$imgUrl';
+          String imgUrl = img.toString().trim();
+          if (imgUrl.isNotEmpty && imgUrl != 'null') {
+            if (!imgUrl.startsWith('http')) {
+              imgUrl = 'https://www.tikwm.com$imgUrl';
+            }
+            imagesList.add(imgUrl);
           }
-          imagesList.add(imgUrl);
         }
       }
     }
 
-    final isPhotoSlide = imagesList.isNotEmpty;
+    final isPhotoSlide = imagesList.length > 1;
 
     // Media URLs
     final coverUrl = (data['cover'] ?? data['origin_cover'] ?? (imagesList.isNotEmpty ? imagesList.first : '')).toString();
@@ -75,9 +77,24 @@ class TikTokVideoModel extends TikTokVideo {
       videoHdUrl = 'https://www.tikwm.com$videoHdUrl';
     }
 
-    String? audioUrl = (data['music'] ?? data['music_url'])?.toString();
-    if (audioUrl != null && audioUrl.isNotEmpty && !audioUrl.startsWith('http')) {
-      audioUrl = 'https://www.tikwm.com$audioUrl';
+    // Audio / Sound URL Auto-Detection
+    String? audioUrl;
+    final musicInfo = data['music_info'] as Map<String, dynamic>?;
+    if (musicInfo != null && musicInfo['play'] != null && musicInfo['play'].toString().trim().isNotEmpty) {
+      audioUrl = musicInfo['play'].toString().trim();
+    } else if (data['music'] != null && data['music'].toString().trim().isNotEmpty) {
+      audioUrl = data['music'].toString().trim();
+    } else if (data['music_url'] != null && data['music_url'].toString().trim().isNotEmpty) {
+      audioUrl = data['music_url'].toString().trim();
+    }
+
+    if (audioUrl != null && audioUrl.isNotEmpty) {
+      if (!audioUrl.startsWith('http')) {
+        audioUrl = 'https://www.tikwm.com$audioUrl';
+      }
+      if (audioUrl == 'https://www.tikwm.com' || audioUrl == 'https://www.tikwm.com/' || audioUrl == 'null') {
+        audioUrl = null;
+      }
     }
 
     // Numbers & Metrics
@@ -133,9 +150,13 @@ class TikTokVideoModel extends TikTokVideo {
     required String authorAvatar,
     required String coverUrl,
     required String videoUrl,
+    String? audioUrl,
     List<String> images = const [],
     bool isVideo = true,
   }) {
+    final isSlide = images.length > 1;
+    final contentType = isVideo ? MediaContentType.video : (isSlide ? MediaContentType.photos : MediaContentType.video);
+
     return TikTokVideoModel(
       id: id,
       url: originalUrl,
@@ -147,6 +168,7 @@ class TikTokVideoModel extends TikTokVideo {
       dynamicCoverUrl: coverUrl,
       videoUrl: videoUrl,
       videoHdUrl: videoUrl,
+      audioUrl: (audioUrl != null && audioUrl.isNotEmpty && audioUrl != 'null') ? audioUrl : (isVideo ? videoUrl : null),
       images: images,
       durationSeconds: 0,
       width: 1080,
@@ -158,7 +180,7 @@ class TikTokVideoModel extends TikTokVideo {
       sharesCount: 0,
       createdAt: DateTime.now(),
       platform: MediaPlatform.instagram,
-      contentType: isVideo ? MediaContentType.video : MediaContentType.photos,
+      contentType: contentType,
     );
   }
 
@@ -181,6 +203,14 @@ class TikTokVideoModel extends TikTokVideo {
     int width = 1080,
     int height = 1920,
   }) {
+    final isSlide = images.length > 1;
+    final determinedContentType = (contentType == MediaContentType.photos && !isSlide) ? MediaContentType.video : contentType;
+
+    String? validAudio = (audioUrl != null && audioUrl.isNotEmpty && audioUrl != 'null') ? audioUrl : null;
+    if (validAudio == null && videoUrl.isNotEmpty && contentType != MediaContentType.photos) {
+      validAudio = videoUrl;
+    }
+
     return TikTokVideoModel(
       id: id,
       url: originalUrl,
@@ -192,7 +222,7 @@ class TikTokVideoModel extends TikTokVideo {
       dynamicCoverUrl: coverUrl,
       videoUrl: videoUrl,
       videoHdUrl: videoHdUrl ?? videoUrl,
-      audioUrl: audioUrl,
+      audioUrl: validAudio,
       images: images,
       durationSeconds: durationSeconds,
       width: width,
@@ -204,7 +234,7 @@ class TikTokVideoModel extends TikTokVideo {
       sharesCount: 0,
       createdAt: DateTime.now(),
       platform: platform,
-      contentType: contentType,
+      contentType: determinedContentType,
     );
   }
 }

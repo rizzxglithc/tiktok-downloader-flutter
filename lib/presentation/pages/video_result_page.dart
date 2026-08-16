@@ -162,7 +162,7 @@ class _VideoResultPageState extends State<VideoResultPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '${video.images.length} Foto',
+                            '${video.images.length} Slide Foto',
                             style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
                           ),
                         )
@@ -180,10 +180,38 @@ class _VideoResultPageState extends State<VideoResultPage> {
                         ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  const Divider(color: AppColors.border, height: 1),
+                  const SizedBox(height: 10),
+
+                  // Auto-Detect Media & Audio Badges
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _buildStatusPill(
+                        icon: isSlide
+                            ? Icons.photo_library_rounded
+                            : (isAudioOnly ? Icons.audiotrack_rounded : Icons.videocam_rounded),
+                        label: isSlide
+                            ? '${video.images.length} Slide Foto'
+                            : (isAudioOnly ? 'Lagu / Audio' : 'Video MP4'),
+                        color: Colors.white.withOpacity(0.08),
+                        textColor: Colors.white,
+                      ),
+                      _buildStatusPill(
+                        icon: video.hasAudio ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                        label: video.hasAudio ? 'Sound Asli Terdeteksi' : 'Tanpa Audio (Muted)',
+                        color: video.hasAudio
+                            ? const Color(0xFF22C55E).withOpacity(0.12)
+                            : const Color(0xFFF97316).withOpacity(0.12),
+                        textColor: video.hasAudio ? const Color(0xFF4ADE80) : const Color(0xFFFB923C),
+                      ),
+                    ],
+                  ),
+
                   if (video.title.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Divider(color: AppColors.border, height: 1),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Text(
                       video.title,
                       style: const TextStyle(
@@ -225,7 +253,7 @@ class _VideoResultPageState extends State<VideoResultPage> {
             // Download Buttons for Slide Carousel
             if (isSlide) ...[
               GlassButton(
-                text: 'Unduh Semua Foto (${video.images.length} Foto Full HD)',
+                text: 'Unduh Semua Foto (${video.images.length} Slide Full HD)',
                 icon: Icons.photo_library_rounded,
                 onPressed: () async {
                   final started = await downloadProvider.startPhotoSlidesDownload(
@@ -258,6 +286,27 @@ class _VideoResultPageState extends State<VideoResultPage> {
                   },
                 ),
                 const SizedBox(height: 10),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.volume_off_rounded, color: AppColors.textMuted, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Konten slide ini tidak menyertakan trek audio.',
+                          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ] else if (isAudioOnly) ...[
               // Audio only download (Spotify, SoundCloud, Audio)
@@ -336,6 +385,27 @@ class _VideoResultPageState extends State<VideoResultPage> {
                       Navigator.pop(context);
                     }
                   },
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.volume_off_rounded, color: AppColors.textMuted, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Video ini berstatus hening (tanpa suara latar).',
+                          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ],
@@ -483,6 +553,32 @@ class _VideoResultPageState extends State<VideoResultPage> {
           style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ],
+    );
+  }
+
+  Widget _buildStatusPill({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color textColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: textColor, size: 14),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(color: textColor, fontSize: 11.5, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
     );
   }
 }

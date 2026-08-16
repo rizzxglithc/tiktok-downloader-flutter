@@ -73,10 +73,10 @@ class TikTokVideo {
   });
 
   String get bestVideoUrl => videoHdUrl?.isNotEmpty == true ? videoHdUrl! : videoUrl;
-  bool get hasAudio => audioUrl != null && audioUrl!.isNotEmpty;
+  bool get hasAudio => audioUrl != null && audioUrl!.trim().isNotEmpty && audioUrl != 'null' && audioUrl != 'https://www.tikwm.com' && !audioUrl!.endsWith('/');
   bool get hasHd => videoHdUrl != null && videoHdUrl!.isNotEmpty;
-  bool get isSlide => contentType == MediaContentType.photos && images.isNotEmpty;
-  bool get isVideo => contentType == MediaContentType.video;
+  bool get isSlide => contentType == MediaContentType.photos && images.length > 1;
+  bool get isVideo => contentType == MediaContentType.video || (!isSlide && !isAudio);
   bool get isAudio => contentType == MediaContentType.audio;
 
   String get platformDisplayName {
