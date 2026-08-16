@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/formatters.dart';
 import '../providers/settings_provider.dart';
+import '../providers/history_provider.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/custom_toast.dart';
 
@@ -226,9 +227,56 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 14),
                   InkWell(
                     onTap: () async {
-                      await settings.clearCache();
-                      if (context.mounted) {
-                        CustomToast.showSuccess(context, 'Cache aplikasi berhasil dibersihkan');
+                      final shouldClear = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: const Color(0xFF18181B),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          title: const Row(
+                            children: [
+                              Icon(Icons.cleaning_services_rounded, color: AppColors.primary, size: 20),
+                              SizedBox(width: 10),
+                              Text('Hapus Cache & Riwayat?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Ukuran cache saat ini: ${Formatters.formatBytes(settings.storageUsedBytes)}',
+                                style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Membersihkan cache akan menghapus file sementara, thumbnail gambar, dan mengosongkan daftar video secara responsif.',
+                                style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Batal', style: TextStyle(color: AppColors.textMuted)),
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.error,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Bersihkan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (shouldClear == true && context.mounted) {
+                        await settings.clearCache();
+                        if (context.mounted) {
+                          await context.read<HistoryProvider>().clearAll();
+                          CustomToast.showSuccess(context, 'Cache dan daftar riwayat video berhasil dibersihkan');
+                        }
                       }
                     },
                     borderRadius: BorderRadius.circular(10),

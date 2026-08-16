@@ -395,119 +395,127 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 26),
 
-              // 6. Recent Downloads Section
-              if (historyProvider.allItems.isNotEmpty) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Unduhan Terakhir',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    Text(
-                      '${historyProvider.allItems.length} file',
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                SizedBox(
-                  height: 130,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: historyProvider.allItems.take(8).length,
-                    separatorBuilder: (context, index) => const SizedBox(width: 10),
-                    itemBuilder: (context, index) {
-                      final item = historyProvider.allItems[index];
-                      return GestureDetector(
-                        onTap: () {
-                          if (item.isVideo && item.filePath.isNotEmpty) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => VideoViewerPage(
-                                  videoUrl: item.filePath,
-                                  title: item.title,
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                        child: Container(
-                          width: 105,
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.border, width: 1),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Stack(
+              // 6. Recent Downloads Section (Animated & Responsive)
+              AnimatedSize(
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeInOutCubic,
+                child: historyProvider.allItems.isNotEmpty
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Positioned.fill(
-                                child: item.thumbnailUrl.isNotEmpty
-                                    ? Image.network(
-                                        item.thumbnailUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) => Container(
-                                          color: AppColors.surfaceHover,
-                                          child: const Icon(Icons.broken_image_rounded, color: AppColors.textMuted),
-                                        ),
-                                      )
-                                    : Container(
-                                        color: AppColors.surfaceHover,
-                                        child: const Icon(Icons.music_note_rounded, color: AppColors.textMuted),
-                                      ),
-                              ),
-                              Positioned.fill(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                    ),
-                                  ),
+                              const Text(
+                                'Unduhan Terakhir',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.2,
                                 ),
                               ),
-                              Positioned(
-                                bottom: 8,
-                                left: 8,
-                                right: 8,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      item.isPhotos
-                                          ? Icons.photo_library_rounded
-                                          : (item.isVideo ? Icons.play_arrow_rounded : Icons.audiotrack_rounded),
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      item.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                                    ),
-                                  ],
-                                ),
+                              Text(
+                                '${historyProvider.allItems.length} file',
+                                style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                               ),
                             ],
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 130,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: historyProvider.allItems.take(8).length,
+                              separatorBuilder: (context, index) => const SizedBox(width: 10),
+                              itemBuilder: (context, index) {
+                                final item = historyProvider.allItems[index];
+                                return GestureDetector(
+                                  onTap: () {
+                                    if (item.isVideo && item.filePath.isNotEmpty) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => VideoViewerPage(
+                                            videoUrl: item.filePath,
+                                            title: item.title,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: Container(
+                                    width: 105,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surface,
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(color: AppColors.border, width: 1),
+                                    ),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: Stack(
+                                      children: [
+                                        Positioned.fill(
+                                          child: item.thumbnailUrl.isNotEmpty
+                                              ? Image.network(
+                                                  item.thumbnailUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) => Container(
+                                                    color: AppColors.surfaceHover,
+                                                    child: const Icon(Icons.broken_image_rounded, color: AppColors.textMuted),
+                                                  ),
+                                                )
+                                              : Container(
+                                                  color: AppColors.surfaceHover,
+                                                  child: const Icon(Icons.music_note_rounded, color: AppColors.textMuted),
+                                                ),
+                                        ),
+                                        Positioned.fill(
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          bottom: 8,
+                                          left: 8,
+                                          right: 8,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                item.isPhotos
+                                                    ? Icons.photo_library_rounded
+                                                    : (item.isVideo ? Icons.play_arrow_rounded : Icons.audiotrack_rounded),
+                                                color: Colors.white,
+                                                size: 16,
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                item.title,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),

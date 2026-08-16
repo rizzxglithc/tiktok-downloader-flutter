@@ -203,52 +203,61 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
           const SizedBox(height: 4),
 
-          // 2. History List
+          // 2. History List (Animated & Responsive)
           Expanded(
-            child: items.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.border, width: 1),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: items.isEmpty
+                  ? Center(
+                      key: const ValueKey('history_empty'),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.border, width: 1),
+                            ),
+                            child: const Icon(
+                              Icons.history_rounded,
+                              color: AppColors.textMuted,
+                              size: 36,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.history_rounded,
-                            color: AppColors.textMuted,
-                            size: 36,
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Belum ada riwayat unduhan',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Belum ada riwayat unduhan',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Media yang diunduh akan otomatis tersimpan di sini',
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Media yang diunduh akan otomatis tersimpan di sini',
-                          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    padding: EdgeInsets.fromLTRB(isCompact ? 12 : 20, 4, isCompact ? 12 : 20, 100),
-                    itemCount: items.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      final fileExists = item.filePath.isNotEmpty && File(item.filePath).existsSync();
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      key: const ValueKey('history_list'),
+                      color: Colors.white,
+                      backgroundColor: AppColors.surface,
+                      onRefresh: () => historyProvider.syncWithStorage(),
+                      child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                        padding: EdgeInsets.fromLTRB(isCompact ? 12 : 20, 4, isCompact ? 12 : 20, 100),
+                        itemCount: items.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          final fileExists = item.filePath.isNotEmpty && File(item.filePath).existsSync();
 
-                      return GlassCard(
+                          return GlassCard(
                         padding: const EdgeInsets.all(12),
                         borderRadius: 16,
                         onTap: () => _handleOpenMedia(context, item.filePath, item.title, item.isVideo),

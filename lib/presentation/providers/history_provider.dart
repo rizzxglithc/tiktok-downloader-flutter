@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/download_item.dart';
 import '../../domain/usecases/get_history_usecase.dart';
@@ -52,13 +53,30 @@ class HistoryProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _items = await _getHistoryUseCase.execute();
+      final rawItems = await _getHistoryUseCase.execute();
+      // Sync and filter items to ensure only existing files are kept
+      final validItems = <DownloadItem>[];
+      for (final item in rawItems) {
+        if (item.filePath.isNotEmpty && File(item.filePath).existsSync()) {
+          validItems.add(item);
+        } else if (item.filePath.isNotEmpty) {
+          // Prune missing file reference from storage
+          await _deleteHistoryUseCase.execute(item.id);
+        } else {
+          validItems.add(item);
+        }
+      }
+      _items = validItems;
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> syncWithStorage() async {
+    await loadHistory();
   }
 
   void setFilter(HistoryFilter filter) {
