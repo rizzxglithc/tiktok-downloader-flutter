@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:dio/dio.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/errors/app_exceptions.dart';
@@ -50,6 +51,8 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
         return await _fetchPinterestDetails(cleanUrl);
       case MediaPlatform.applemusic:
         return await _fetchAppleMusicDetails(cleanUrl);
+      case MediaPlatform.terabox:
+        return await _fetchTeraboxDetails(cleanUrl);
       case MediaPlatform.douyin:
         return await _fetchDouyinDetails(cleanUrl);
       case MediaPlatform.snackvideo:
@@ -1382,7 +1385,230 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 11. Douyin Handler
+  // 12. TeraBox Handler (flowvideoplayer.com + Anti-Limit)
+  // ==========================================
+  Future<TikTokVideoModel> _fetchTeraboxDetails(String url) async {
+    try {
+      const baseUrl = 'https://flowvideoplayer.com';
+      final fingerprint = _generateTeraboxFingerprint();
+      final ua = fingerprint['ua'] as String;
+
+      // 1. Fetch CSRF token & initial cookies
+      final homeResp = await apiClient.dio.get(
+        baseUrl,
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {
+            'Accept': 'text/html',
+            'User-Agent': ua,
+          },
+        ),
+      );
+
+      final html = homeResp.data.toString();
+      final csrfMatch = RegExp(r'<meta\s+name=[\"\x27]csrf-token[\"\x27]\s+content=[\"\x27]([^\"]+)[\"\x27]').firstMatch(html);
+      final csrf = csrfMatch?.group(1);
+      if (csrf == null || csrf.isEmpty) {
+        throw const ApiException('Gagal memvalidasi token keamanan TeraBox.');
+      }
+
+      var cookies = _mergeCookiesList(homeResp.headers['set-cookie']);
+
+      final apiHeaders = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': csrf,
+        'Origin': baseUrl,
+        'Referer': '$baseUrl/',
+        'User-Agent': ua,
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Dest': 'empty',
+      };
+
+      // 2. Device Init with randomized fingerprint
+      final initResp = await apiClient.dio.post(
+        '$baseUrl/device/init',
+        data: jsonEncode(fingerprint),
+        options: Options(
+          headers: {
+            ...apiHeaders,
+            'Cookie': cookies,
+          },
+        ),
+      );
+
+      cookies = _mergeCookiesList(initResp.headers['set-cookie'], cookies);
+
+      // 3. Search Video / File from Telegram Bot API
+      final searchResp = await apiClient.dio.post(
+        '$baseUrl/telegram/bot/search/video',
+        data: jsonEncode({'url': url}),
+        options: Options(
+          headers: {
+            ...apiHeaders,
+            'Cookie': cookies,
+          },
+        ),
+      );
+
+      final sData = searchResp.data is Map ? searchResp.data as Map : jsonDecode(searchResp.data.toString()) as Map;
+      final resList = sData['response'] as List?;
+      if (resList == null || resList.isEmpty) {
+        final msg = sData['message']?.toString() ?? 'File TeraBox tidak ditemukan atau link kadaluarsa.';
+        throw ApiException(msg);
+      }
+
+      final item = resList[0] as Map<String, dynamic>;
+      final fileName = (item['file_name'] ?? 'TeraBox File').toString();
+      final thumbnail = (item['thumbnail'] ?? '').toString();
+      final fileSizeStr = (item['file_size'] ?? '').toString();
+      final fileSizeNum = (item['file_size_bytes'] is num) ? (item['file_size_bytes'] as num).toInt() : 0;
+      final fastStreamUrl = (item['fast_stream_url'] ?? '').toString();
+      final rawDownloadUrl = (item['download_url'] ?? '').toString();
+
+      // 4. Resolve Final Download URL
+      String finalDownloadUrl = rawDownloadUrl;
+      if (rawDownloadUrl.isNotEmpty) {
+        try {
+          final dlResp = await apiClient.dio.post(
+            '$baseUrl/video/download',
+            data: jsonEncode({'url': rawDownloadUrl}),
+            options: Options(
+              headers: {
+                ...apiHeaders,
+                'Cookie': cookies,
+              },
+            ),
+          );
+          final dlData = dlResp.data is Map ? dlResp.data as Map : jsonDecode(dlResp.data.toString()) as Map;
+          if (dlData['status'] == true && dlData['download_url'] != null && dlData['download_url'].toString().isNotEmpty) {
+            finalDownloadUrl = dlData['download_url'].toString();
+          }
+        } catch (_) {}
+      }
+
+      final targetUrl = finalDownloadUrl.isNotEmpty ? finalDownloadUrl : (fastStreamUrl.isNotEmpty ? fastStreamUrl : rawDownloadUrl);
+      if (targetUrl.isEmpty) {
+        throw const ApiException('Gagal mengekstrak link unduhan file TeraBox.');
+      }
+
+      final contentType = _classifyTeraboxMedia(fileName);
+
+      return TikTokVideoModel.fromUniversalMedia(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        originalUrl: url,
+        title: fileSizeStr.isNotEmpty ? '$fileName ($fileSizeStr)' : fileName,
+        authorName: 'TeraBox Cloud',
+        authorUsername: '@terabox',
+        authorAvatar: '',
+        coverUrl: thumbnail,
+        videoUrl: targetUrl,
+        videoHdUrl: targetUrl,
+        audioUrl: contentType == MediaContentType.audio ? targetUrl : null,
+        images: contentType == MediaContentType.photos && thumbnail.isNotEmpty ? [thumbnail] : [],
+        fileSize: fileSizeNum,
+        platform: MediaPlatform.terabox,
+        contentType: contentType,
+      );
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw ApiException('Gagal memproses file TeraBox: ${e.toString()}');
+    }
+  }
+
+  /// Helper: Random hardware fingerprint for TeraBox anti-limit
+  Map<String, dynamic> _generateTeraboxFingerprint() {
+    final random = Random();
+    const cpuList = [4, 8, 12, 16];
+    const ramList = [4, 8, 16, 32];
+    const rendererList = [
+      'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)',
+      'ANGLE (AMD, AMD Radeon Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)',
+      'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)',
+      'Mali-G57 MC2',
+      'Adreno (TM) 610',
+    ];
+    final isMobile = random.nextBool();
+    return {
+      'cpu': cpuList[random.nextInt(cpuList.length)],
+      'memory': ramList[random.nextInt(ramList.length)],
+      'touch': isMobile ? (random.nextInt(5) + 1) : 0,
+      'platform': isMobile ? 'Linux armv81' : 'Win32',
+      'lang': 'id-ID',
+      'vendor': 'Google Inc.',
+      'webgl_vendor': 'Google Inc. (NVIDIA)',
+      'webgl_renderer': rendererList[random.nextInt(rendererList.length)],
+      'ua': isMobile
+          ? 'Mozilla/5.0 (Linux; Android 13; CPH2565) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+          : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'backup_token': null,
+    };
+  }
+
+  /// Helper: Merge Set-Cookie headers into single Cookie string
+  String _mergeCookiesList(List<String>? setCookies, [String currentCookies = '']) {
+    final Map<String, String> cookieMap = {};
+    if (currentCookies.isNotEmpty) {
+      for (final part in currentCookies.split(';')) {
+        final idx = part.indexOf('=');
+        if (idx != -1) {
+          final k = part.substring(0, idx).trim();
+          final v = part.substring(idx + 1).trim();
+          if (k.isNotEmpty) cookieMap[k] = v;
+        }
+      }
+    }
+    if (setCookies != null) {
+      for (final raw in setCookies) {
+        final main = raw.split(';')[0].trim();
+        final idx = main.indexOf('=');
+        if (idx != -1) {
+          final k = main.substring(0, idx).trim();
+          final v = main.substring(idx + 1).trim();
+          if (k.isNotEmpty) cookieMap[k] = v;
+        }
+      }
+    }
+    return cookieMap.entries.map((e) => '${e.key}=${e.value}').join('; ');
+  }
+
+  /// Helper: Classify TeraBox file content type from filename
+  MediaContentType _classifyTeraboxMedia(String fileName) {
+    final lower = fileName.toLowerCase();
+
+    // Audio Files
+    if (lower.endsWith('.mp3') ||
+        lower.endsWith('.wav') ||
+        lower.endsWith('.aac') ||
+        lower.endsWith('.flac') ||
+        lower.endsWith('.ogg') ||
+        lower.endsWith('.m4a') ||
+        lower.endsWith('.wma') ||
+        lower.endsWith('.opus') ||
+        lower.endsWith('.alac')) {
+      return MediaContentType.audio;
+    }
+
+    // Image Files
+    if (lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.gif') ||
+        lower.endsWith('.bmp') ||
+        lower.endsWith('.svg') ||
+        lower.endsWith('.heic')) {
+      return MediaContentType.photos;
+    }
+
+    // Video / Document / Archive Files default to video/stream
+    return MediaContentType.video;
+  }
+
+  // ==========================================
+  // 13. Douyin Handler
   // ==========================================
   Future<TikTokVideoModel> _fetchDouyinDetails(String url) async {
     try {

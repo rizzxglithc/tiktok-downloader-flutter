@@ -192,10 +192,24 @@ class _VideoResultPageState extends State<VideoResultPage> {
                       _buildStatusPill(
                         icon: isSlide
                             ? Icons.photo_library_rounded
-                            : (isAudioOnly ? Icons.audiotrack_rounded : Icons.videocam_rounded),
+                            : (isAudioOnly
+                                ? Icons.audiotrack_rounded
+                                : (video.title.toLowerCase().contains('.zip') ||
+                                        video.title.toLowerCase().contains('.rar') ||
+                                        video.title.toLowerCase().contains('.pdf') ||
+                                        video.title.toLowerCase().contains('.apk')
+                                    ? Icons.insert_drive_file_rounded
+                                    : Icons.videocam_rounded)),
                         label: isSlide
                             ? '${video.images.length} Slide Foto'
-                            : (isAudioOnly ? 'Lagu / Audio' : 'Video MP4'),
+                            : (isAudioOnly
+                                ? 'Lagu / Audio'
+                                : (video.title.toLowerCase().contains('.zip') ||
+                                        video.title.toLowerCase().contains('.rar') ||
+                                        video.title.toLowerCase().contains('.pdf') ||
+                                        video.title.toLowerCase().contains('.apk')
+                                    ? 'File Dokumen / Arsip'
+                                    : 'Video')),
                         color: Colors.white.withOpacity(0.08),
                         textColor: Colors.white,
                       ),
@@ -494,10 +508,15 @@ class _VideoResultPageState extends State<VideoResultPage> {
     final isSpotify = widget.video.platform == MediaPlatform.spotify;
     final isApple = widget.video.platform == MediaPlatform.applemusic;
     final isSoundCloud = widget.video.platform == MediaPlatform.soundcloud;
+    final isTerabox = widget.video.platform == MediaPlatform.terabox;
 
     Color themeColor = isSpotify
         ? const Color(0xFF1DB954)
-        : (isApple ? const Color(0xFFFA243C) : (isSoundCloud ? const Color(0xFFFF5500) : AppColors.primary));
+        : (isApple
+            ? const Color(0xFFFA243C)
+            : (isSoundCloud
+                ? const Color(0xFFFF5500)
+                : (isTerabox ? const Color(0xFF0086FF) : AppColors.primary)));
 
     return Container(
       width: double.infinity,

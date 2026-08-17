@@ -57,6 +57,11 @@ class UrlValidator {
     caseSensitive: false,
   );
 
+  static final RegExp _teraboxRegex = RegExp(
+    r'(https?:\/\/)?(www\.|1024\.|terabox\.)?(terabox\.com|1024terabox\.com|terabox\.app|teraboxlink\.com|terasharelink\.com|teraboxshare\.com|nephobox\.com|4funbox\.com|mirrobox\.com|momerybox\.com|tibibox\.com|freeterabox\.com)\/[^\s]+',
+    caseSensitive: false,
+  );
+
   static final RegExp _douyinRegex = RegExp(
     r'(https?:\/\/)?(www\.|v\.)?(douyin\.com|iesdouyin\.com)\/[^\s]+',
     caseSensitive: false,
@@ -99,6 +104,7 @@ class UrlValidator {
     if (_soundcloudRegex.hasMatch(trimmed)) return MediaPlatform.soundcloud;
     if (_pinterestRegex.hasMatch(trimmed)) return MediaPlatform.pinterest;
     if (_appleMusicRegex.hasMatch(trimmed)) return MediaPlatform.applemusic;
+    if (_teraboxRegex.hasMatch(trimmed)) return MediaPlatform.terabox;
     if (_douyinRegex.hasMatch(trimmed)) return MediaPlatform.douyin;
     if (_snackvideoRegex.hasMatch(trimmed)) return MediaPlatform.snackvideo;
     if (_kuaishouRegex.hasMatch(trimmed)) return MediaPlatform.kuaishou;
