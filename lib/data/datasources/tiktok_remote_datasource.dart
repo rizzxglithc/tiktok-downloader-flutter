@@ -48,6 +48,8 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
         return await _fetchSoundCloudDetails(cleanUrl);
       case MediaPlatform.pinterest:
         return await _fetchPinterestDetails(cleanUrl);
+      case MediaPlatform.applemusic:
+        return await _fetchAppleMusicDetails(cleanUrl);
       case MediaPlatform.douyin:
         return await _fetchDouyinDetails(cleanUrl);
       case MediaPlatform.snackvideo:
@@ -236,10 +238,81 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 3. Facebook Handler (GetMyFB Scraper)
+  // 3. Facebook Handler (fget.io & wayin.ai Meta)
   // ==========================================
   Future<TikTokVideoModel> _fetchFacebookDetails(String url) async {
-    // 1. User Scraper: GetMyFB API (https://getmyfb.com/process)
+    // 1. Primary Scraper: fget.io + wayin.ai Metadata
+    try {
+      final fgetBody = 'id=${Uri.encodeComponent(url)}&locale=id';
+      final fgetFuture = apiClient.dio.post(
+        'https://fget.io/process',
+        data: fgetBody,
+        options: Options(
+          contentType: 'application/x-www-form-urlencoded',
+          responseType: ResponseType.plain,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+            'Hx-Current-Url': 'https://fget.io/id',
+            'Hx-Request': 'true',
+            'Hx-Target': 'target',
+            'Hx-Trigger': 'form',
+            'Origin': 'https://fget.io',
+            'Referer': 'https://fget.io/id',
+          },
+        ),
+      );
+
+      final wayinFuture = _fetchFacebookWayinMeta(url);
+
+      final results = await Future.wait([fgetFuture, wayinFuture]);
+      final fgetResp = results[0] as Response;
+      final wayinMeta = results[1] as Map<String, dynamic>?;
+
+      final html = fgetResp.data.toString();
+      final thumbMatch = RegExp(r'class="[^"]*result-thumbnail[^"]*"[^>]*>.*?<img[^>]+src=[\"\x27]([^\s\"\x27]+)[\"\x27]', dotAll: true).firstMatch(html);
+      final thumb = thumbMatch?.group(1);
+
+      final linkMatches = RegExp(r'href=[\"\x27](https?:\/\/[^\s\"\x27]+)[\"\x27]').allMatches(html);
+      final List<String> videoLinks = [];
+      for (final m in linkMatches) {
+        final href = m.group(1);
+        if (href != null && (href.contains('ssscdn.io') || href.contains('.mp4') || href.contains('fbcdn') || href.contains('download'))) {
+          if (!videoLinks.contains(href) && !href.contains('play.google.com')) {
+            videoLinks.add(href);
+          }
+        }
+      }
+
+      if (videoLinks.isNotEmpty) {
+        final hdUrl = videoLinks.first;
+        final sdUrl = videoLinks.length > 1 ? videoLinks[1] : hdUrl;
+
+        final title = (wayinMeta?['title'] ?? 'Facebook Video').toString();
+        final author = (wayinMeta?['author'] ?? 'Facebook Creator').toString();
+        final duration = (wayinMeta?['duration'] is num) ? (wayinMeta!['duration'] as num).toInt() : 0;
+        final views = (wayinMeta?['view_count'] is num) ? (wayinMeta!['view_count'] as num).toInt() : 0;
+        final likes = (wayinMeta?['like_count'] is num) ? (wayinMeta!['like_count'] as num).toInt() : 0;
+        final comments = (wayinMeta?['comment_count'] is num) ? (wayinMeta!['comment_count'] as num).toInt() : 0;
+        final cover = (wayinMeta?['thumbnail'] ?? thumb ?? '').toString();
+
+        return TikTokVideoModel.fromUniversalMedia(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          originalUrl: url,
+          title: title,
+          authorName: author,
+          authorUsername: '@facebook',
+          authorAvatar: '',
+          coverUrl: cover,
+          videoUrl: hdUrl,
+          videoHdUrl: hdUrl,
+          durationSeconds: duration,
+          platform: MediaPlatform.facebook,
+          contentType: MediaContentType.video,
+        );
+      }
+    } catch (_) {}
+
+    // 2. Secondary Scraper: GetMyFB API (https://getmyfb.com/process)
     try {
       final body = 'id=${Uri.encodeComponent(url)}&locale=en';
       final response = await apiClient.dio.post(
@@ -275,7 +348,6 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
 
       if (videoLinks.isNotEmpty) {
         final hdUrl = videoLinks.first;
-        final sdUrl = videoLinks.length > 1 ? videoLinks[1] : hdUrl;
         final titleMatch = RegExp(r'<p[^>]*class=[\"\x27]results-item-text[\"\x27][^>]*>(.*?)<\/p>').firstMatch(markup);
 
         return TikTokVideoModel.fromUniversalMedia(
@@ -294,7 +366,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
       }
     } catch (_) {}
 
-    // 2. Direct HTML Extraction
+    // 3. Fallback: Direct HTML Extraction
     try {
       final resp = await apiClient.dio.get(
         url,
@@ -334,6 +406,51 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
     } catch (_) {}
 
     throw const ApiException('Gagal memproses video Facebook. Pastikan video bersifat publik.');
+  }
+
+  /// Helper: Fetch rich Facebook metadata from wayin.ai
+  Future<Map<String, dynamic>?> _fetchFacebookWayinMeta(String fbUrl) async {
+    try {
+      final headers = {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+        'Content-Type': 'application/json',
+        'Origin': 'https://wayin.ai',
+        'Referer': 'https://wayin.ai/',
+        'X-Platform': 'web',
+      };
+
+      final parseResp = await apiClient.dio.post(
+        'https://wayinvideo-api.wayin.ai/api/parse_url?url=${Uri.encodeComponent(fbUrl)}',
+        data: '{}',
+        options: Options(headers: headers),
+      );
+
+      final pData = parseResp.data is Map ? parseResp.data as Map : jsonDecode(parseResp.data.toString()) as Map;
+      final cleanUrl = pData['data']?.toString() ?? fbUrl;
+
+      final metaResp = await apiClient.dio.post(
+        'https://wayinvideo-api.wayin.ai/api/p/v2/get_video_meta',
+        data: jsonEncode({'video_url': cleanUrl}),
+        options: Options(headers: headers),
+      );
+
+      final mData = metaResp.data is Map ? metaResp.data as Map : jsonDecode(metaResp.data.toString()) as Map;
+      if (mData['code'] == '0' && mData['data'] is Map) {
+        final meta = mData['data'] as Map<String, dynamic>;
+        final durationMs = (meta['duration'] is num) ? (meta['duration'] as num).toInt() : 0;
+        return {
+          'title': meta['title'],
+          'author': meta['author'],
+          'abstract': meta['abstract'],
+          'thumbnail': meta['thumbnail'],
+          'duration': (durationMs / 1000).round(),
+          'view_count': meta['view_count'],
+          'like_count': meta['like_count'],
+          'comment_count': meta['comment_count'],
+        };
+      }
+    } catch (_) {}
+    return null;
   }
 
   // ==========================================
@@ -501,11 +618,66 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 6. SoundCloud Handler (downcloudme.com)
+  // 6. SoundCloud Handler (dltracks.com & downcloud)
   // ==========================================
   Future<TikTokVideoModel> _fetchSoundCloudDetails(String url) async {
+    // 1. Primary Scraper: dltracks.com API
     try {
-      // 1. Fetch DownCloud page to extract verify nonce
+      final response = await apiClient.dio.post(
+        'https://www.dltracks.com/api/soundcloud',
+        data: jsonEncode({'url': url}),
+        options: Options(
+          contentType: Headers.jsonContentType,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+            'Origin': 'https://www.dltracks.com',
+            'Referer': 'https://www.dltracks.com/',
+          },
+        ),
+      );
+
+      final resData = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : (response.data is String ? jsonDecode(response.data) as Map<String, dynamic> : <String, dynamic>{});
+
+      if (resData['success'] == true && resData['data'] is Map<String, dynamic>) {
+        final d = resData['data'] as Map<String, dynamic>;
+        final title = (d['title'] ?? 'SoundCloud Track').toString();
+        final artist = (d['artist'] ?? 'SoundCloud Artist').toString();
+        final thumb = (d['thumbnail'] ?? '').toString();
+        final avatar = (d['authorAvatar'] ?? '').toString();
+        final duration = (d['duration'] is num) ? (d['duration'] as num).toInt() : 0;
+        final views = (d['playCount'] is num) ? (d['playCount'] as num).toInt() : 0;
+        final likes = (d['likeCount'] is num) ? (d['likeCount'] as num).toInt() : 0;
+
+        String? dlUrl;
+        if (d['downloadUrls'] is List && (d['downloadUrls'] as List).isNotEmpty) {
+          final first = (d['downloadUrls'] as List).first as Map<String, dynamic>?;
+          dlUrl = first?['url']?.toString();
+        }
+        dlUrl ??= (d['streamUrl'] ?? d['cdnUrl'])?.toString();
+
+        if (dlUrl != null && dlUrl.isNotEmpty) {
+          return TikTokVideoModel.fromUniversalMedia(
+            id: (d['id'] ?? DateTime.now().millisecondsSinceEpoch).toString(),
+            originalUrl: url,
+            title: title,
+            authorName: artist,
+            authorUsername: '@soundcloud',
+            authorAvatar: avatar,
+            coverUrl: thumb,
+            videoUrl: '',
+            audioUrl: dlUrl,
+            durationSeconds: duration,
+            platform: MediaPlatform.soundcloud,
+            contentType: MediaContentType.audio,
+          );
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fallback: downcloudme.com
+    try {
       final pageResp = await apiClient.dio.get(
         'https://downcloudme.com',
         options: Options(
@@ -564,10 +736,146 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 7. Spotify Handler (spotyloader & musicfab)
+  // 7. Spotify Handler (spotidown.app & spotyloader)
   // ==========================================
   Future<TikTokVideoModel> _fetchSpotifyDetails(String url) async {
-    // 1. Try Spotyloader API
+    // 1. Primary Scraper: SpotidownScraper (spotidown.app)
+    try {
+      const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      final initResp = await apiClient.dio.get(
+        'https://spotidown.app/en3',
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {
+            'User-Agent': userAgent,
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+        ),
+      );
+
+      final cookies = initResp.headers['set-cookie'] ?? [];
+      final cookieStr = cookies.map((c) => c.split(';')[0]).join('; ');
+      final html = initResp.data.toString();
+
+      final hiddenMatches = RegExp(r'<input[^>]+type=[\"\x27]hidden[\"\x27][^>]*>').allMatches(html);
+      String dynamicName = '';
+      String dynamicVal = '';
+      for (final h in hiddenMatches) {
+        final line = h.group(0) ?? '';
+        final nameM = RegExp(r'name=[\"\x27]([^\"]+)[\"\x27]').firstMatch(line);
+        final valM = RegExp(r'value=[\"\x27]([^\"]*)[\"\x27]').firstMatch(line);
+        if (nameM != null && valM != null && nameM.group(1) != 'g-recaptcha-response') {
+          dynamicName = nameM.group(1)!;
+          dynamicVal = valM.group(1)!;
+        }
+      }
+
+      final postPayload = 'url=${Uri.encodeComponent(url)}&g-recaptcha-response=&${Uri.encodeComponent(dynamicName)}=${Uri.encodeComponent(dynamicVal)}';
+      final searchResp = await apiClient.dio.post(
+        'https://spotidown.app/action',
+        data: postPayload,
+        options: Options(
+          contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+          headers: {
+            'User-Agent': userAgent,
+            'Origin': 'https://spotidown.app',
+            'Referer': 'https://spotidown.app/en3',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Cookie': cookieStr,
+          },
+        ),
+      );
+
+      final searchData = searchResp.data is Map ? searchResp.data as Map : jsonDecode(searchResp.data.toString()) as Map;
+      if (searchData['error'] != true && searchData['data'] != null) {
+        final dataHtml = searchData['data'].toString();
+        final dM = RegExp(r'name=[\"\x27]data[\"\x27]\s+value=[\"\x27]([^\"]+)[\"\x27]').firstMatch(dataHtml);
+        final bM = RegExp(r'name=[\"\x27]base[\"\x27]\s+value=[\"\x27]([^\"]+)[\"\x27]').firstMatch(dataHtml);
+        final tM = RegExp(r'name=[\"\x27]token[\"\x27]\s+value=[\"\x27]([^\"]+)[\"\x27]').firstMatch(dataHtml);
+
+        Map<String, dynamic> metadata = {};
+        if (dM != null) {
+          try {
+            final decoded = utf8.decode(base64Decode(dM.group(1)!));
+            metadata = jsonDecode(decoded) as Map<String, dynamic>;
+          } catch (_) {}
+        }
+
+        final title = (metadata['name'] ?? metadata['title'] ?? 'Spotify Track').toString();
+        final artist = (metadata['artist'] ?? 'Spotify Artist').toString();
+        final cover = (metadata['cover'] ?? metadata['image'] ?? '').toString();
+        final album = (metadata['album'] ?? '').toString();
+
+        String? downloadUrl;
+        if (dM != null && bM != null && tM != null) {
+          try {
+            final trackPayload = 'data=${Uri.encodeComponent(dM.group(1)!)}&base=${Uri.encodeComponent(bM.group(1)!)}&token=${Uri.encodeComponent(tM.group(1)!)}';
+            final trResp = await apiClient.dio.post(
+              'https://spotidown.app/action/track',
+              data: trackPayload,
+              options: Options(
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                headers: {
+                  'User-Agent': userAgent,
+                  'Origin': 'https://spotidown.app',
+                  'Referer': 'https://spotidown.app/en3',
+                  'X-Requested-With': 'XMLHttpRequest',
+                  'Cookie': cookieStr,
+                },
+              ),
+            );
+            final trData = trResp.data is Map ? trResp.data as Map : jsonDecode(trResp.data.toString()) as Map;
+            final trHtml = (trData['data'] ?? '').toString();
+            final mp3M = RegExp(r'href=[\"\x27](https?:\/\/[^\"]+)[\"\x27]').firstMatch(trHtml);
+            if (mp3M != null) {
+              downloadUrl = mp3M.group(1);
+            }
+          } catch (_) {}
+        }
+
+        downloadUrl ??= await _resolveSpotifyDirectMp3(url);
+
+        if (downloadUrl != null && downloadUrl.isNotEmpty) {
+          return TikTokVideoModel.fromUniversalMedia(
+            id: (metadata['tid'] ?? DateTime.now().millisecondsSinceEpoch).toString(),
+            originalUrl: url,
+            title: album.isNotEmpty ? '$title ($album)' : title,
+            authorName: artist,
+            authorUsername: '@spotify',
+            authorAvatar: '',
+            coverUrl: cover,
+            videoUrl: '',
+            audioUrl: downloadUrl,
+            platform: MediaPlatform.spotify,
+            contentType: MediaContentType.audio,
+          );
+        }
+      }
+    } catch (_) {}
+
+    // 2. Secondary Scrapers: Spotyloader & MusicFab
+    final directDl = await _resolveSpotifyDirectMp3(url);
+    if (directDl != null && directDl.isNotEmpty) {
+      return TikTokVideoModel.fromUniversalMedia(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        originalUrl: url,
+        title: 'Spotify Track',
+        authorName: 'Spotify Artist',
+        authorUsername: '@spotify',
+        authorAvatar: '',
+        coverUrl: '',
+        videoUrl: '',
+        audioUrl: directDl,
+        platform: MediaPlatform.spotify,
+        contentType: MediaContentType.audio,
+      );
+    }
+
+    throw const ApiException('Gagal memproses lagu Spotify.');
+  }
+
+  /// Helper: Resolve Spotify direct MP3 download from spotyloader/musicfab
+  Future<String?> _resolveSpotifyDirectMp3(String url) async {
     try {
       final resp = await apiClient.dio.post(
         'https://spotyloader.com/api/download',
@@ -581,28 +889,11 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           },
         ),
       );
-
       final data = resp.data is Map ? resp.data as Map : jsonDecode(resp.data.toString()) as Map;
-      final downloadUrl = (data['download_url'] ?? data['download'] ?? data['url'])?.toString();
-
-      if (downloadUrl != null && downloadUrl.isNotEmpty) {
-        return TikTokVideoModel.fromUniversalMedia(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          originalUrl: url,
-          title: (data['title'] ?? data['name'] ?? 'Spotify Track').toString(),
-          authorName: (data['artist'] ?? 'Spotify Artist').toString(),
-          authorUsername: '@spotify',
-          authorAvatar: '',
-          coverUrl: (data['cover'] ?? data['image'] ?? '').toString(),
-          videoUrl: '',
-          audioUrl: downloadUrl,
-          platform: MediaPlatform.spotify,
-          contentType: MediaContentType.audio,
-        );
-      }
+      final dl = (data['download_url'] ?? data['download'] ?? data['url'])?.toString();
+      if (dl != null && dl.isNotEmpty) return dl;
     } catch (_) {}
 
-    // 2. Try MusicFab API
     try {
       final resp = await apiClient.dio.post(
         'https://musicfab.io/api/spotify',
@@ -616,35 +907,121 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
           },
         ),
       );
-
       final data = resp.data is Map ? resp.data as Map : jsonDecode(resp.data.toString()) as Map;
       final meta = data['data']?['metadata'] as Map?;
-      final downloadUrl = meta?['download']?.toString();
-
-      if (downloadUrl != null && downloadUrl.isNotEmpty) {
-        return TikTokVideoModel.fromUniversalMedia(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          originalUrl: url,
-          title: (meta?['name'] ?? 'Spotify Track').toString(),
-          authorName: (meta?['artist'] ?? 'Spotify Artist').toString(),
-          authorUsername: '@spotify',
-          authorAvatar: '',
-          coverUrl: (meta?['image'] ?? '').toString(),
-          videoUrl: '',
-          audioUrl: downloadUrl,
-          platform: MediaPlatform.spotify,
-          contentType: MediaContentType.audio,
-        );
-      }
+      final dl = meta?['download']?.toString();
+      if (dl != null && dl.isNotEmpty) return dl;
     } catch (_) {}
-
-    throw const ApiException('Gagal memproses lagu Spotify.');
+    return null;
   }
 
   // ==========================================
-  // 8. YouTube Handler
+  // 8. YouTube Handler (flvto.online / ytmp4.is)
   // ==========================================
   Future<TikTokVideoModel> _fetchYouTubeDetails(String url) async {
+    // 1. Primary Scraper: flvto.online converter (ytmp4.is)
+    try {
+      String? ytId;
+      final regExp = RegExp(
+        r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|embed|watch|shorts)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})',
+        caseSensitive: false,
+      );
+      final match = regExp.firstMatch(url);
+      if (match != null) {
+        ytId = match.group(1);
+      }
+
+      if (ytId == null || ytId.isEmpty) {
+        final searchResp = await apiClient.dio.get(
+          'https://test.flvto.online/search/?q=${Uri.encodeComponent(url)}',
+          options: Options(
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+              'origin': 'https://v5.ytmp4.is',
+              'referer': 'https://v5.ytmp4.is/',
+            },
+          ),
+        );
+        final sData = searchResp.data is Map ? searchResp.data as Map : jsonDecode(searchResp.data.toString()) as Map;
+        final items = sData['items'] as List?;
+        if (items != null && items.isNotEmpty) {
+          ytId = items[0]['id']?.toString();
+        }
+      }
+
+      if (ytId != null && ytId.isNotEmpty) {
+        final headers = {
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+          'Content-Type': 'application/json',
+          'origin': 'https://ht.flvto.online',
+          'referer': 'https://ht.flvto.online/button?url=https://www.youtube.com/watch?v=$ytId&fileType=mp4',
+        };
+
+        String? videoUrl;
+        String title = 'YouTube Video';
+        try {
+          final convMp4 = await apiClient.dio.post(
+            'https://ht.flvto.online/converter',
+            data: jsonEncode({'id': ytId, 'fileType': 'mp4'}),
+            options: Options(headers: headers),
+          );
+          final d = convMp4.data is Map ? convMp4.data as Map : jsonDecode(convMp4.data.toString()) as Map;
+          title = (d['title'] ?? title).toString();
+          final formats = d['formats'] as List?;
+          if (formats != null && formats.isNotEmpty) {
+            final selected = formats.firstWhere(
+              (f) => f['qualityLabel'] == '720p' || f['qualityLabel'] == '1080p',
+              orElse: () => formats[0],
+            );
+            videoUrl = selected['url']?.toString();
+          }
+        } catch (_) {}
+
+        String? audioUrl;
+        int durationSec = 0;
+        try {
+          final convMp3 = await apiClient.dio.post(
+            'https://ht.flvto.online/converter',
+            data: jsonEncode({'id': ytId, 'fileType': 'mp3'}),
+            options: Options(
+              headers: {
+                ...headers,
+                'referer': 'https://ht.flvto.online/button?url=https://www.youtube.com/watch?v=$ytId&fileType=mp3',
+              },
+            ),
+          );
+          final d3 = convMp3.data is Map ? convMp3.data as Map : jsonDecode(convMp3.data.toString()) as Map;
+          if (d3['title'] != null && title == 'YouTube Video') {
+            title = d3['title'].toString();
+          }
+          audioUrl = (d3['link'] ?? d3['download'])?.toString();
+          if (d3['duration'] is num) {
+            durationSec = (d3['duration'] as num).toInt();
+          }
+        } catch (_) {}
+
+        final thumbUrl = 'https://i.ytimg.com/vi/$ytId/hqdefault.jpg';
+
+        if (videoUrl != null || audioUrl != null) {
+          return TikTokVideoModel.fromUniversalMedia(
+            id: ytId,
+            originalUrl: url,
+            title: title,
+            authorName: 'YouTube Creator',
+            authorUsername: '@youtube',
+            authorAvatar: '',
+            coverUrl: thumbUrl,
+            videoUrl: videoUrl ?? (audioUrl ?? ''),
+            audioUrl: audioUrl,
+            durationSeconds: durationSec,
+            platform: MediaPlatform.youtube,
+            contentType: videoUrl != null ? MediaContentType.video : MediaContentType.audio,
+          );
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fallback: Backend1 YouTube API
     try {
       final res = await apiClient.dio.get('https://backend1.tioo.eu.org/youtube?url=${Uri.encodeComponent(url)}');
       if (res.data is Map) {
@@ -673,9 +1050,93 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 9. Threads Handler
+  // 9. Threads / X Handler (sssthreads.net)
   // ==========================================
   Future<TikTokVideoModel> _fetchThreadsDetails(String url) async {
+    // 1. Primary Scraper: sssthreads.net
+    try {
+      final getResp = await apiClient.dio.get(
+        'https://sssthreads.net/',
+        options: Options(
+          headers: {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
+        ),
+      );
+
+      final cookies = getResp.headers['set-cookie'] ?? [];
+      final cookieStr = cookies.map((c) => c.split(';')[0]).join('; ');
+      final html = getResp.data.toString();
+      final csrfMatch = RegExp(r'name=[\"\x27]csrf-token[\"\x27]\s+content=[\"\x27]([^\"]+)[\"\x27]').firstMatch(html);
+      final csrf = csrfMatch?.group(1) ?? '';
+
+      final res = await apiClient.dio.post(
+        'https://sssthreads.net/fetch-data',
+        data: jsonEncode({'url': url}),
+        options: Options(
+          contentType: Headers.jsonContentType,
+          headers: {
+            'X-CSRF-TOKEN': csrf,
+            'Origin': 'https://sssthreads.net',
+            'Referer': 'https://sssthreads.net/',
+            'Cookie': cookieStr,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        ),
+      );
+
+      final resData = res.data is Map ? res.data as Map : jsonDecode(res.data.toString()) as Map;
+      final htmlOut = (resData['html'] ?? '').toString();
+
+      if (htmlOut.isNotEmpty) {
+        final authorM = RegExp(r'class=[\"\x27]author-name[\"\x27][^>]*>(.*?)<\/div>').firstMatch(htmlOut);
+        final avatarM = RegExp(r'class=[\"\x27]author-avatar[\"\x27][^>]+src=[\"\x27]([^\"]+)[\"\x27]').firstMatch(htmlOut);
+        final descM = RegExp(r'class=[\"\x27]post-description[\"\x27][^>]*>(.*?)<\/div>', dotAll: true).firstMatch(htmlOut);
+
+        final authorName = authorM?.group(1)?.trim() ?? 'Threads User';
+        final authorAvatar = avatarM?.group(1) ?? '';
+        final caption = descM?.group(1)?.trim() ?? 'Threads Post';
+
+        final linkMatches = RegExp(r'href=[\"\x27](https?:\/\/[^\"]+)[\"\x27][^>]*>(.*?)<\/a>').allMatches(htmlOut);
+        String? videoUrl;
+        String? audioUrl;
+        final List<String> imageUrls = [];
+
+        for (final m in linkMatches) {
+          final href = m.group(1);
+          final text = (m.group(2) ?? '').toLowerCase();
+          if (href != null) {
+            if (text.contains('video')) {
+              videoUrl ??= href;
+            } else if (text.contains('mp3') || text.contains('audio')) {
+              audioUrl ??= href;
+            } else if (text.contains('photo') || text.contains('image')) {
+              if (!imageUrls.contains(href)) imageUrls.add(href);
+            }
+          }
+        }
+
+        final isSlide = imageUrls.length > 1 && videoUrl == null;
+        final coverUrl = imageUrls.isNotEmpty ? imageUrls.first : (videoUrl ?? '');
+
+        if (videoUrl != null || imageUrls.isNotEmpty) {
+          return TikTokVideoModel.fromUniversalMedia(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            originalUrl: url,
+            title: caption,
+            authorName: authorName,
+            authorUsername: authorName.startsWith('@') ? authorName : '@$authorName',
+            authorAvatar: authorAvatar,
+            coverUrl: coverUrl,
+            videoUrl: videoUrl ?? coverUrl,
+            audioUrl: audioUrl,
+            images: imageUrls,
+            platform: MediaPlatform.threads,
+            contentType: videoUrl != null ? MediaContentType.video : (isSlide ? MediaContentType.photos : MediaContentType.video),
+          );
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fallback: Backend1 Threads
     try {
       final res = await apiClient.dio.get('https://backend1.tioo.eu.org/threads?url=${Uri.encodeComponent(url)}');
       if (res.data is Map && res.data['result'] != null) {
@@ -703,9 +1164,106 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 10. Pinterest Handler
+  // 10. Pinterest Handler (id.pinterest.com GraphQL)
   // ==========================================
   Future<TikTokVideoModel> _fetchPinterestDetails(String url) async {
+    // 1. Primary Scraper: Pinterest GraphQL
+    try {
+      final canonicalUrl = await UrlValidator.resolveToCanonicalUrl(url);
+      final pinMatch = RegExp(r'\/pin\/(\d+)').firstMatch(canonicalUrl) ?? RegExp(r'\/pin\/(\d+)').firstMatch(url);
+      final pinId = pinMatch?.group(1);
+
+      if (pinId != null && pinId.isNotEmpty) {
+        final headers = {
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+          'Accept-Language': 'id-ID,id;q=0.9,en-AU;q=0.8,en;q=0.7,en-US;q=0.6',
+          'Content-Type': 'application/json',
+          'x-csrftoken': 'daaaed19c58a2787b0d6a23620be18e1',
+          'Cookie': 'csrftoken=daaaed19c58a2787b0d6a23620be18e1; _auth=1',
+        };
+
+        final p1 = jsonEncode({
+          'queryHash': '5444a9d6e1f023c6785830bbadc6f60fe2bb7a8775b86f77905d400cfb06991b',
+          'variables': {
+            'pinId': pinId,
+            'isAuth': true,
+            'isDesktop': false,
+            'isUnauth': false,
+            'shouldPrefetchStoryPinFragment': false,
+            'shouldSkipImageViewerOnPageQuery': true,
+          }
+        });
+
+        final p2 = jsonEncode({
+          'queryHash': 'a03317b3c9329575ec06fe3aeff2a3f194dae93a4eaaf4d16eab671fd2efd198',
+          'variables': {
+            'pinId': pinId,
+            'isAuth': true,
+            'isDesktop': false,
+            'isUnauth': false,
+            'shouldDefer': false,
+            'shouldFetchAIInsight': false,
+            'shouldShowSeoDrawerOption': false,
+          }
+        });
+
+        final resp1Future = apiClient.dio.post('https://id.pinterest.com/_/graphql/', data: p1, options: Options(headers: headers));
+        final resp2Future = apiClient.dio.post('https://id.pinterest.com/_/graphql/', data: p2, options: Options(headers: headers));
+
+        final resps = await Future.wait([resp1Future, resp2Future]);
+        final d1 = resps[0].data is Map ? resps[0].data as Map : jsonDecode(resps[0].data.toString()) as Map;
+        final d2 = resps[1].data is Map ? resps[1].data as Map : jsonDecode(resps[1].data.toString()) as Map;
+
+        final a = d1['data']?['v3GetPinQueryv2']?['data'] as Map<String, dynamic>? ?? {};
+        final b = d2['data']?['v3GetPinQueryv2']?['data'] as Map<String, dynamic>? ?? {};
+
+        final pinner = b['pinner'] as Map<String, dynamic>? ?? a['closeupAttribution'] as Map<String, dynamic>? ?? {};
+        final fullName = (pinner['fullName'] ?? pinner['username'] ?? 'Pinterest Creator').toString();
+        final username = (pinner['username'] ?? 'pinterest_user').toString();
+        final avatar = (pinner['imageLargeUrl'] ?? pinner['imageMediumUrl'] ?? '').toString();
+
+        final title = (b['title'] ?? b['closeupUnifiedDescription'] ?? b['description'] ?? 'Pinterest Pin').toString().trim();
+
+        // Video
+        String? videoUrl;
+        final v720 = b['storyPinData']?['pages']?[0]?['blocks']?[0]?['videoDataV2']?['videoList720P']?['v720P']
+            ?? b['videos']?['videoList']?['v720P'];
+        if (v720 != null && v720.toString().isNotEmpty) {
+          videoUrl = v720.toString();
+        }
+
+        // Images
+        final List<String> imageUrls = [];
+        for (final k in a.keys) {
+          if (k.startsWith('images_') && a[k] is Map && a[k]['url'] != null) {
+            final u = a[k]['url'].toString();
+            if (u.isNotEmpty && !imageUrls.contains(u)) {
+              imageUrls.add(u);
+            }
+          }
+        }
+
+        final isSlide = imageUrls.length > 1 && videoUrl == null;
+        final coverUrl = imageUrls.isNotEmpty ? imageUrls.last : (videoUrl ?? '');
+
+        return TikTokVideoModel.fromUniversalMedia(
+          id: pinId,
+          originalUrl: url,
+          title: title.isNotEmpty ? title : 'Pinterest Pin',
+          authorName: fullName,
+          authorUsername: username.startsWith('@') ? username : '@$username',
+          authorAvatar: avatar,
+          coverUrl: coverUrl,
+          videoUrl: videoUrl ?? coverUrl,
+          images: imageUrls,
+          durationSeconds: 0,
+          platform: MediaPlatform.pinterest,
+          contentType: videoUrl != null ? MediaContentType.video : (isSlide ? MediaContentType.photos : MediaContentType.video),
+        );
+      }
+    } catch (_) {}
+
+    // 2. Fallback: Backend1 Pinterest API
     try {
       final res = await apiClient.dio.get('https://backend1.tioo.eu.org/pinterest?url=${Uri.encodeComponent(url)}');
       if (res.data is Map && res.data['result'] != null) {
@@ -729,6 +1287,98 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
     } catch (_) {}
 
     throw const ApiException('Gagal memproses Pin Pinterest.');
+  }
+
+  // ==========================================
+  // 11. Apple Music Handler (aaplmusicdownloader.com)
+  // ==========================================
+  Future<TikTokVideoModel> _fetchAppleMusicDetails(String url) async {
+    try {
+      final headers = {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'origin': 'https://aaplmusicdownloader.com',
+        'referer': 'https://aaplmusicdownloader.com/',
+        'sec-fetch-site': 'same-origin',
+        'sec-fetch-mode': 'cors',
+        'accept-language': 'id-ID,id;q=0.9,en-AU;q=0.8,en;q=0.7,en-US;q=0.6',
+      };
+
+      final init = await apiClient.dio.get('https://aaplmusicdownloader.com/', options: Options(headers: headers));
+      final cookies = init.headers['set-cookie'] ?? [];
+      final cookieStr = cookies.map((c) => c.split(';')[0]).join('; ');
+
+      final reqheaders = {
+        ...headers,
+        'Cookie': cookieStr,
+        'x-requested-with': 'XMLHttpRequest',
+      };
+
+      final metadataResp = await apiClient.dio.get(
+        'https://aaplmusicdownloader.com/api/song_url.php?url=${Uri.encodeComponent(url)}',
+        options: Options(headers: reqheaders),
+      );
+
+      final meta = metadataResp.data is Map ? metadataResp.data as Map : jsonDecode(metadataResp.data.toString()) as Map;
+      final songName = (meta['name'] ?? 'Apple Music Track').toString().replaceAll("'", '').replaceAll('"', '');
+      final artistName = (meta['artist'] ?? 'Apple Music Artist').toString().replaceAll("'", '').replaceAll('"', '');
+      final albumName = (meta['albumname'] ?? '').toString();
+      final thumb = (meta['thumb'] ?? '').toString();
+      final songUrl = (meta['url'] ?? url).toString();
+
+      final swdPayload = 'song_name=${Uri.encodeComponent(songName)}&artist_name=${Uri.encodeComponent(artistName)}&url=${Uri.encodeComponent(songUrl)}&token=none&zip_download=false&quality=320';
+      final swdRes = await apiClient.dio.post(
+        'https://aaplmusicdownloader.com/api/composer/swd.php',
+        data: swdPayload,
+        options: Options(
+          contentType: 'application/x-www-form-urlencoded',
+          headers: reqheaders,
+        ),
+      );
+
+      final swdData = swdRes.data is Map ? swdRes.data as Map : jsonDecode(swdRes.data.toString()) as Map;
+      final dlink = (swdData['dlink'] ?? '').toString();
+
+      String finalDownloadUrl = dlink;
+
+      if (dlink.isNotEmpty) {
+        try {
+          final id3Payload = 'url=${Uri.encodeComponent(dlink)}&name=${Uri.encodeComponent(songName)}&artist=${Uri.encodeComponent(artistName)}&album=${Uri.encodeComponent(albumName)}&thumb=${Uri.encodeComponent(thumb)}';
+          final id3Res = await apiClient.dio.post(
+            'https://aaplmusicdownloader.com/api/composer/ffmpeg/saveid3.php',
+            data: id3Payload,
+            options: Options(
+              contentType: 'application/x-www-form-urlencoded',
+              responseType: ResponseType.plain,
+              receiveTimeout: const Duration(seconds: 12),
+              headers: reqheaders,
+            ),
+          );
+          final savedFileName = id3Res.data.toString().trim();
+          if (savedFileName.isNotEmpty && !savedFileName.contains('<')) {
+            finalDownloadUrl = 'https://aaplmusicdownloader.com/api/composer/ffmpeg/saved/$savedFileName';
+          }
+        } catch (_) {}
+      }
+
+      if (finalDownloadUrl.isNotEmpty) {
+        return TikTokVideoModel.fromUniversalMedia(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          originalUrl: url,
+          title: albumName.isNotEmpty ? '$songName ($albumName)' : songName,
+          authorName: artistName,
+          authorUsername: '@applemusic',
+          authorAvatar: '',
+          coverUrl: thumb,
+          videoUrl: '',
+          audioUrl: finalDownloadUrl,
+          platform: MediaPlatform.applemusic,
+          contentType: MediaContentType.audio,
+        );
+      }
+    } catch (_) {}
+
+    throw const ApiException('Gagal memproses lagu Apple Music. Pastikan tautan lagu valid dan publik.');
   }
 
   // ==========================================

@@ -52,6 +52,11 @@ class UrlValidator {
     caseSensitive: false,
   );
 
+  static final RegExp _appleMusicRegex = RegExp(
+    r'(https?:\/\/)?(music\.)?(apple\.com)\/[^\s]+',
+    caseSensitive: false,
+  );
+
   static final RegExp _douyinRegex = RegExp(
     r'(https?:\/\/)?(www\.|v\.)?(douyin\.com|iesdouyin\.com)\/[^\s]+',
     caseSensitive: false,
@@ -93,6 +98,7 @@ class UrlValidator {
     if (_spotifyRegex.hasMatch(trimmed)) return MediaPlatform.spotify;
     if (_soundcloudRegex.hasMatch(trimmed)) return MediaPlatform.soundcloud;
     if (_pinterestRegex.hasMatch(trimmed)) return MediaPlatform.pinterest;
+    if (_appleMusicRegex.hasMatch(trimmed)) return MediaPlatform.applemusic;
     if (_douyinRegex.hasMatch(trimmed)) return MediaPlatform.douyin;
     if (_snackvideoRegex.hasMatch(trimmed)) return MediaPlatform.snackvideo;
     if (_kuaishouRegex.hasMatch(trimmed)) return MediaPlatform.kuaishou;
@@ -141,6 +147,8 @@ class UrlValidator {
         return 'SoundCloud';
       case MediaPlatform.pinterest:
         return 'Pinterest';
+      case MediaPlatform.applemusic:
+        return 'Apple Music';
       case MediaPlatform.douyin:
         return 'Douyin';
       case MediaPlatform.snackvideo:

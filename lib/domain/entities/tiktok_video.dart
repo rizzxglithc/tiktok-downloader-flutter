@@ -9,6 +9,7 @@ enum MediaPlatform {
   spotify,
   soundcloud,
   pinterest,
+  applemusic,
   douyin,
   snackvideo,
   kuaishou,
@@ -101,6 +102,8 @@ class TikTokVideo {
         return 'SoundCloud';
       case MediaPlatform.pinterest:
         return 'Pinterest';
+      case MediaPlatform.applemusic:
+        return 'Apple Music';
       case MediaPlatform.douyin:
         return 'Douyin';
       case MediaPlatform.snackvideo:

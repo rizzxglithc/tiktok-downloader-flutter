@@ -490,52 +490,142 @@ class _VideoResultPageState extends State<VideoResultPage> {
   }
 
   Widget _buildAudioCard(double screenWidth) {
+    final hasCover = widget.video.coverUrl.isNotEmpty;
+    final isSpotify = widget.video.platform == MediaPlatform.spotify;
+    final isApple = widget.video.platform == MediaPlatform.applemusic;
+    final isSoundCloud = widget.video.platform == MediaPlatform.soundcloud;
+
+    Color themeColor = isSpotify
+        ? const Color(0xFF1DB954)
+        : (isApple ? const Color(0xFFFA243C) : (isSoundCloud ? const Color(0xFFFF5500) : AppColors.primary));
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
       decoration: BoxDecoration(
         color: const Color(0xFF141416),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border, width: 1),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: themeColor.withOpacity(0.3), width: 1.2),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            themeColor.withOpacity(0.08),
+            const Color(0xFF141416),
+            Colors.black.withOpacity(0.6),
+          ],
+        ),
       ),
       child: Column(
         children: [
-          Container(
-            width: 140,
-            height: 140,
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.4),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
+          // Album Art Cover Container
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 170,
+                height: 170,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: themeColor.withOpacity(0.25),
+                      blurRadius: 28,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: widget.video.coverUrl.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: widget.video.coverUrl,
-                    fit: BoxFit.cover,
-                    errorWidget: (context, url, error) => const Icon(Icons.music_note_rounded, color: Colors.white, size: 60),
-                  )
-                : const Icon(Icons.music_note_rounded, color: Colors.white, size: 60),
+                clipBehavior: Clip.antiAlias,
+                child: hasCover
+                    ? CachedNetworkImage(
+                        imageUrl: widget.video.coverUrl,
+                        fit: BoxFit.cover,
+                        errorWidget: (context, url, error) => Container(
+                          color: AppColors.surface,
+                          child: Icon(Icons.music_note_rounded, color: themeColor, size: 64),
+                        ),
+                      )
+                    : Container(
+                        color: AppColors.surface,
+                        child: Icon(Icons.music_note_rounded, color: themeColor, size: 64),
+                      ),
+              ),
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white24, width: 1),
+                  ),
+                  child: Icon(Icons.audiotrack_rounded, color: themeColor, size: 16),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
+
+          // Title & Artist
           Text(
             widget.video.title,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: -0.3),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
-            widget.video.authorName,
+            widget.video.authorName.isNotEmpty ? widget.video.authorName : 'Audio Track',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13.5, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 14),
+
+          // Quality & Format Badges
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: themeColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: themeColor.withOpacity(0.3)),
+                ),
+                child: Text(
+                  widget.video.platformDisplayName,
+                  style: TextStyle(color: themeColor, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'MP3 • 320kbps HQ',
+                  style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (widget.video.durationSeconds > 0) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    Formatters.formatDuration(widget.video.durationSeconds),
+                    style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

@@ -152,6 +152,8 @@ class _HomePageState extends State<HomePage> {
         return Icons.graphic_eq_rounded;
       case MediaPlatform.pinterest:
         return Icons.push_pin_rounded;
+      case MediaPlatform.applemusic:
+        return Icons.music_note_rounded;
       case MediaPlatform.douyin:
         return Icons.video_library_rounded;
       case MediaPlatform.snackvideo:
@@ -370,6 +372,10 @@ class _HomePageState extends State<HomePage> {
                     _buildPlatformBadge(Icons.content_cut_rounded, 'CapCut'),
                     const SizedBox(width: 8),
                     _buildPlatformBadge(Icons.headphones_rounded, 'Spotify'),
+                    const SizedBox(width: 8),
+                    _buildPlatformBadge(Icons.graphic_eq_rounded, 'SoundCloud'),
+                    const SizedBox(width: 8),
+                    _buildPlatformBadge(Icons.music_note_rounded, 'Apple Music'),
                     const SizedBox(width: 8),
                     _buildPlatformBadge(Icons.push_pin_rounded, 'Pinterest'),
                   ],
