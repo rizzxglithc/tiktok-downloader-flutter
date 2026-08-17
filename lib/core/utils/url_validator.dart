@@ -155,6 +155,8 @@ class UrlValidator {
         return 'Pinterest';
       case MediaPlatform.applemusic:
         return 'Apple Music';
+      case MediaPlatform.terabox:
+        return 'TeraBox';
       case MediaPlatform.douyin:
         return 'Douyin';
       case MediaPlatform.snackvideo:

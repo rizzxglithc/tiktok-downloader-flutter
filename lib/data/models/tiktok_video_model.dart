@@ -202,6 +202,7 @@ class TikTokVideoModel extends TikTokVideo {
     int durationSeconds = 0,
     int width = 1080,
     int height = 1920,
+    int fileSize = 0,
   }) {
     final isSlide = images.length > 1;
     final determinedContentType = (contentType == MediaContentType.photos && !isSlide) ? MediaContentType.video : contentType;
@@ -227,7 +228,7 @@ class TikTokVideoModel extends TikTokVideo {
       durationSeconds: durationSeconds,
       width: width,
       height: height,
-      fileSize: 0,
+      fileSize: fileSize,
       viewsCount: 0,
       likesCount: 0,
       commentsCount: 0,
