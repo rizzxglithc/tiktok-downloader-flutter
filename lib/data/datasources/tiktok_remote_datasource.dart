@@ -149,13 +149,74 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 2. CapCut Handler (3bic API & Web Scraper)
+  // 2. CapCut Handler (snapvideotools.com API)
   // ==========================================
   Future<TikTokVideoModel> _fetchCapCutDetails(String url) async {
-    final resolvedUrl = await UrlValidator.resolveToCanonicalUrl(url);
-
-    // 1. User Scraper: 3bic API (https://3bic.com/api/download)
+    // 1. Primary Scraper: snapvideotools.com API
     try {
+      final headers = {
+        'Content-Type': 'application/json',
+        'Origin': 'https://snapvideotools.com',
+        'Referer': 'https://snapvideotools.com/id/capcut-downloader',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+        'Sec-Ch-Ua': '"Chromium";v="139", "Not;A=Brand";v="99"',
+        'Sec-Ch-Ua-Mobile': '?1',
+        'Sec-Ch-Ua-Platform': '"Android"',
+        'X-Requested-With': 'XMLHttpRequest',
+      };
+
+      final response = await apiClient.dio.post(
+        'https://snapvideotools.com/id/api/snap',
+        data: jsonEncode({'text': url}),
+        options: Options(headers: headers),
+      );
+
+      final resData = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : (response.data is String ? jsonDecode(response.data) as Map<String, dynamic> : <String, dynamic>{});
+
+      if (resData['data'] is Map<String, dynamic>) {
+        final d = resData['data'] as Map<String, dynamic>;
+        final title = (d['title'] ?? 'CapCut Video').toString();
+        final cover = (d['cover'] ?? '').toString();
+        final mediaUrls = d['mediaUrls'] as List?;
+
+        String? videoUrl;
+        String? hdVideoUrl;
+        if (mediaUrls != null && mediaUrls.isNotEmpty) {
+          for (final m in mediaUrls) {
+            final u = m['url']?.toString();
+            if (u != null && u.isNotEmpty) {
+              if (videoUrl == null) {
+                videoUrl = u;
+              } else {
+                hdVideoUrl ??= u;
+              }
+            }
+          }
+        }
+
+        if (videoUrl != null && videoUrl.isNotEmpty) {
+          return TikTokVideoModel.fromUniversalMedia(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            originalUrl: url,
+            title: title.isNotEmpty ? title : 'CapCut Template',
+            authorName: 'CapCut Creator',
+            authorUsername: '@capcut',
+            authorAvatar: '',
+            coverUrl: cover,
+            videoUrl: videoUrl,
+            videoHdUrl: hdVideoUrl ?? videoUrl,
+            platform: MediaPlatform.capcut,
+            contentType: MediaContentType.video,
+          );
+        }
+      }
+    } catch (_) {}
+
+    // 2. Secondary Scraper: 3bic API (https://3bic.com/api/download)
+    try {
+      final resolvedUrl = await UrlValidator.resolveToCanonicalUrl(url);
       final response = await apiClient.dio.post(
         'https://3bic.com/api/download',
         data: jsonEncode({'url': resolvedUrl}),
@@ -193,8 +254,9 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
       }
     } catch (_) {}
 
-    // 2. Direct HTML Extraction
+    // 3. Fallback: Direct HTML Extraction
     try {
+      final resolvedUrl = await UrlValidator.resolveToCanonicalUrl(url);
       final resp = await apiClient.dio.get(
         resolvedUrl,
         options: Options(

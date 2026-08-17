@@ -52,7 +52,8 @@ class SettingsService {
   }
 
   /// Clear all downloaded files in cache/download directory and temporary cache
-  Future<void> clearDownloadCache() async {
+  Future<int> clearDownloadCache() async {
+    int freed = 0;
     try {
       final dir = await MediaStorageService.getDownloadDirectory();
       if (await dir.exists()) {
@@ -60,7 +61,9 @@ class SettingsService {
         for (var file in files) {
           if (file is File) {
             try {
+              final len = await file.length();
               await file.delete();
+              freed += len;
             } catch (_) {}
           }
         }
@@ -71,7 +74,9 @@ class SettingsService {
         for (var file in tempFiles) {
           if (file is File) {
             try {
+              final len = await file.length();
               await file.delete();
+              freed += len;
             } catch (_) {}
           }
         }
@@ -79,5 +84,6 @@ class SettingsService {
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
     } catch (_) {}
+    return freed;
   }
 }

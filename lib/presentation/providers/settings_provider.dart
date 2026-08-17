@@ -35,8 +35,9 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> clearCache() async {
-    await _settingsService.clearDownloadCache();
+  Future<int> clearCache() async {
+    final freed = await _settingsService.clearDownloadCache();
     await calculateStorageUsed();
+    return freed;
   }
 }

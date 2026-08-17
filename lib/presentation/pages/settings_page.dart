@@ -227,6 +227,12 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 14),
                   InkWell(
                     onTap: () async {
+                      final currentCache = settings.storageUsedBytes;
+                      if (currentCache <= 0) {
+                        CustomToast.showInfo(context, 'Cache aplikasi sudah bersih (0 B). Tidak ada file sampah.');
+                        return;
+                      }
+
                       final shouldClear = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
@@ -236,7 +242,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             children: [
                               Icon(Icons.cleaning_services_rounded, color: AppColors.primary, size: 20),
                               SizedBox(width: 10),
-                              Text('Hapus Cache & Riwayat?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                              Text('Bersihkan Cache?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                             ],
                           ),
                           content: Column(
@@ -244,12 +250,12 @@ class _SettingsPageState extends State<SettingsPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Ukuran cache saat ini: ${Formatters.formatBytes(settings.storageUsedBytes)}',
+                                'Ukuran cache saat ini: ${Formatters.formatBytes(currentCache)}',
                                 style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 8),
                               const Text(
-                                'Membersihkan cache akan menghapus file sementara, thumbnail gambar, dan mengosongkan daftar video secara responsif.',
+                                'Membersihkan cache akan menghapus file thumbnail sementara dan data unduhan yang tersimpan di cache.',
                                 style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
                               ),
                             ],
@@ -272,10 +278,15 @@ class _SettingsPageState extends State<SettingsPage> {
                       );
 
                       if (shouldClear == true && context.mounted) {
-                        await settings.clearCache();
+                        final freed = await settings.clearCache();
                         if (context.mounted) {
                           await context.read<HistoryProvider>().clearAll();
-                          CustomToast.showSuccess(context, 'Cache dan daftar riwayat video berhasil dibersihkan');
+                          CustomToast.showSuccess(
+                            context,
+                            freed > 0
+                                ? 'Berhasil membersihkan ${Formatters.formatBytes(freed)} cache!'
+                                : 'Cache aplikasi berhasil dibersihkan',
+                          );
                         }
                       }
                     },
