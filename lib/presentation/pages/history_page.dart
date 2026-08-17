@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:open_filex/open_filex.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/formatters.dart';
-import '../../domain/entities/history_item.dart';
+import '../../domain/entities/download_item.dart';
 import '../../services/media_storage_service.dart';
 import '../providers/history_provider.dart';
 import '../widgets/glass_card.dart';
@@ -361,7 +361,7 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _buildHistoryCard(BuildContext context, HistoryItem item) {
+  Widget _buildHistoryCard(BuildContext context, DownloadItem item) {
     final fileExists = item.filePath.isNotEmpty && File(item.filePath).existsSync();
     final platformInfo = _getPlatformInfo(item.sourceUrl, item.title, item.author);
     final platformColor = platformInfo['color'] as Color;
