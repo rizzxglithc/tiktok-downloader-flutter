@@ -31,7 +31,7 @@ class _StalkerPageState extends State<StalkerPage> {
   void _handleSearch() {
     final text = _inputController.text.trim();
     if (text.isEmpty) {
-      CustomToast.showError(context, 'Masukkan UID atau username target.');
+      CustomToast.showError(context, 'Masukkan target pencarian.');
       return;
     }
     _focusNode.unfocus();
@@ -58,6 +58,15 @@ class _StalkerPageState extends State<StalkerPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 360;
 
+    final hasResult = stalker.freeFireResult != null ||
+        stalker.tikTokResult != null ||
+        stalker.twitterResult != null ||
+        stalker.threadsResult != null ||
+        stalker.instagramResult != null ||
+        stalker.youTubeResult != null ||
+        stalker.gitHubResult != null ||
+        stalker.robloxResult != null;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -70,10 +79,7 @@ class _StalkerPageState extends State<StalkerPage> {
         ),
         automaticallyImplyLeading: false,
         actions: [
-          if (stalker.freeFireResult != null ||
-              stalker.tikTokResult != null ||
-              stalker.gitHubResult != null ||
-              stalker.robloxResult != null)
+          if (hasResult)
             IconButton(
               icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary),
               tooltip: 'Reset Pencarian',
@@ -89,7 +95,7 @@ class _StalkerPageState extends State<StalkerPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Hub Header Banner
+            // 1. Header Banner
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -129,7 +135,7 @@ class _StalkerPageState extends State<StalkerPage> {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Lacak Informasi Akun & Statistik',
+                    'Pusat Pelacak Profil & Statistik',
                     style: TextStyle(color: Colors.white, fontSize: 16.5, fontWeight: FontWeight.bold, letterSpacing: -0.3),
                   ),
                   const SizedBox(height: 4),
@@ -142,7 +148,7 @@ class _StalkerPageState extends State<StalkerPage> {
             ),
             const SizedBox(height: 18),
 
-            // 2. Platform Selector List
+            // 2. Platform Selector (8 Platforms)
             const Text(
               'Pilih Platform Target',
               style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
@@ -150,57 +156,110 @@ class _StalkerPageState extends State<StalkerPage> {
             const SizedBox(height: 10),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
               child: Row(
                 children: [
                   _buildPlatformCard(
                     platform: StalkPlatform.freefire,
                     title: 'Free Fire',
-                    subtitle: 'Garena UID Info',
+                    subtitle: 'UID Akun',
                     icon: Icons.local_fire_department_rounded,
                     accentColor: const Color(0xFFFF5722),
                     isSelected: stalker.currentPlatform == StalkPlatform.freefire,
                     onTap: () {
-                      stalker.setPlatform(StalkPlatform.freefire);
                       _inputController.clear();
+                      stalker.setPlatform(StalkPlatform.freefire);
                     },
                   ),
                   const SizedBox(width: 10),
                   _buildPlatformCard(
                     platform: StalkPlatform.tiktok,
                     title: 'TikTok',
-                    subtitle: 'User & Analytics',
+                    subtitle: 'User & Likes',
                     icon: Icons.music_video_rounded,
                     accentColor: const Color(0xFFFE2C55),
                     isSelected: stalker.currentPlatform == StalkPlatform.tiktok,
                     onTap: () {
-                      stalker.setPlatform(StalkPlatform.tiktok);
                       _inputController.clear();
+                      stalker.setPlatform(StalkPlatform.tiktok);
+                    },
+                  ),
+                  const SizedBox(width: 10),
+                  _buildPlatformCard(
+                    platform: StalkPlatform.instagram,
+                    title: 'Instagram',
+                    subtitle: 'IG Profil',
+                    icon: Icons.camera_alt_rounded,
+                    accentColor: const Color(0xFFE1306C),
+                    isSelected: stalker.currentPlatform == StalkPlatform.instagram,
+                    onTap: () {
+                      _inputController.clear();
+                      stalker.setPlatform(StalkPlatform.instagram);
+                    },
+                  ),
+                  const SizedBox(width: 10),
+                  _buildPlatformCard(
+                    platform: StalkPlatform.twitter,
+                    title: 'Twitter / X',
+                    subtitle: 'Tweets & Stats',
+                    icon: Icons.flutter_dash_rounded,
+                    accentColor: const Color(0xFF1DA1F2),
+                    isSelected: stalker.currentPlatform == StalkPlatform.twitter,
+                    onTap: () {
+                      _inputController.clear();
+                      stalker.setPlatform(StalkPlatform.twitter);
+                    },
+                  ),
+                  const SizedBox(width: 10),
+                  _buildPlatformCard(
+                    platform: StalkPlatform.threads,
+                    title: 'Threads',
+                    subtitle: 'Threads Meta',
+                    icon: Icons.alternate_email_rounded,
+                    accentColor: const Color(0xFFFFFFFF),
+                    isSelected: stalker.currentPlatform == StalkPlatform.threads,
+                    onTap: () {
+                      _inputController.clear();
+                      stalker.setPlatform(StalkPlatform.threads);
+                    },
+                  ),
+                  const SizedBox(width: 10),
+                  _buildPlatformCard(
+                    platform: StalkPlatform.youtube,
+                    title: 'YouTube',
+                    subtitle: 'Channel Info',
+                    icon: Icons.play_circle_fill_rounded,
+                    accentColor: const Color(0xFFFF0000),
+                    isSelected: stalker.currentPlatform == StalkPlatform.youtube,
+                    onTap: () {
+                      _inputController.clear();
+                      stalker.setPlatform(StalkPlatform.youtube);
                     },
                   ),
                   const SizedBox(width: 10),
                   _buildPlatformCard(
                     platform: StalkPlatform.github,
                     title: 'GitHub',
-                    subtitle: 'Developer Profile',
+                    subtitle: 'Developer',
                     icon: Icons.code_rounded,
                     accentColor: const Color(0xFF8B5CF6),
                     isSelected: stalker.currentPlatform == StalkPlatform.github,
                     onTap: () {
-                      stalker.setPlatform(StalkPlatform.github);
                       _inputController.clear();
+                      stalker.setPlatform(StalkPlatform.github);
                     },
                   ),
                   const SizedBox(width: 10),
                   _buildPlatformCard(
                     platform: StalkPlatform.roblox,
                     title: 'Roblox',
-                    subtitle: 'Player & 3D Avatar',
+                    subtitle: 'Player & 3D',
                     icon: Icons.videogame_asset_rounded,
                     accentColor: const Color(0xFFE11D48),
                     isSelected: stalker.currentPlatform == StalkPlatform.roblox,
                     onTap: () {
-                      stalker.setPlatform(StalkPlatform.roblox);
                       _inputController.clear();
+                      stalker.setPlatform(StalkPlatform.roblox);
                     },
                   ),
                 ],
@@ -230,7 +289,10 @@ class _StalkerPageState extends State<StalkerPage> {
                       controller: _inputController,
                       focusNode: _focusNode,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
-                      keyboardType: stalker.currentPlatform == StalkPlatform.freefire ? TextInputType.number : TextInputType.text,
+                      // Keyboard Type disesuaikan: Angka HANYA untuk Free Fire, lainnya Teks huruf biasa!
+                      keyboardType: stalker.currentPlatform == StalkPlatform.freefire
+                          ? TextInputType.number
+                          : TextInputType.text,
                       textInputAction: TextInputAction.search,
                       onSubmitted: (_) => _handleSearch(),
                       decoration: InputDecoration(
@@ -259,7 +321,7 @@ class _StalkerPageState extends State<StalkerPage> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Submit Search Button
+                  // Action Button
                   SizedBox(
                     width: double.infinity,
                     height: 48,
@@ -291,7 +353,7 @@ class _StalkerPageState extends State<StalkerPage> {
                     ),
                   ),
 
-                  // Recent Quick Searches
+                  // Quick Recents
                   if (stalker.recentSearches.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Wrap(
@@ -329,7 +391,7 @@ class _StalkerPageState extends State<StalkerPage> {
             ),
             const SizedBox(height: 20),
 
-            // 4. Error Message Display
+            // 4. Error State
             if (stalker.errorMessage != null)
               Container(
                 width: double.infinity,
@@ -354,9 +416,13 @@ class _StalkerPageState extends State<StalkerPage> {
                 ),
               ),
 
-            // 5. Result Display
+            // 5. Results
             if (stalker.freeFireResult != null) _buildFreeFireCard(stalker.freeFireResult!),
             if (stalker.tikTokResult != null) _buildTikTokCard(stalker.tikTokResult!),
+            if (stalker.instagramResult != null) _buildInstagramCard(stalker.instagramResult!),
+            if (stalker.twitterResult != null) _buildTwitterCard(stalker.twitterResult!),
+            if (stalker.threadsResult != null) _buildThreadsCard(stalker.threadsResult!),
+            if (stalker.youTubeResult != null) _buildYouTubeCard(stalker.youTubeResult!),
             if (stalker.gitHubResult != null) _buildGitHubCard(stalker.gitHubResult!),
             if (stalker.robloxResult != null) _buildRobloxCard(stalker.robloxResult!),
           ],
@@ -371,6 +437,14 @@ class _StalkerPageState extends State<StalkerPage> {
         return 'UID Pemain Free Fire';
       case StalkPlatform.tiktok:
         return 'Username Akun TikTok';
+      case StalkPlatform.instagram:
+        return 'Username Akun Instagram';
+      case StalkPlatform.twitter:
+        return 'Username Akun Twitter / X';
+      case StalkPlatform.threads:
+        return 'Username Akun Threads';
+      case StalkPlatform.youtube:
+        return 'Nama Channel / Handle YouTube';
       case StalkPlatform.github:
         return 'Username GitHub';
       case StalkPlatform.roblox:
@@ -383,7 +457,15 @@ class _StalkerPageState extends State<StalkerPage> {
       case StalkPlatform.freefire:
         return 'Contoh: 123456789 atau 298374194';
       case StalkPlatform.tiktok:
-        return 'Contoh: mrbeast atau @tiktok';
+        return 'Contoh: mrbeast atau tiktok';
+      case StalkPlatform.instagram:
+        return 'Contoh: instagram atau cristiano';
+      case StalkPlatform.twitter:
+        return 'Contoh: elonmusk atau x';
+      case StalkPlatform.threads:
+        return 'Contoh: zuck atau google';
+      case StalkPlatform.youtube:
+        return 'Contoh: MrBeast atau YouTube';
       case StalkPlatform.github:
         return 'Contoh: torvalds atau flutter';
       case StalkPlatform.roblox:
@@ -404,8 +486,8 @@ class _StalkerPageState extends State<StalkerPage> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 140,
-        padding: const EdgeInsets.all(14),
+        width: 130,
+        padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           color: isSelected ? accentColor.withOpacity(0.18) : const Color(0xFF16161A),
           borderRadius: BorderRadius.circular(18),
@@ -417,8 +499,8 @@ class _StalkerPageState extends State<StalkerPage> {
               ? [
                   BoxShadow(
                     color: accentColor.withOpacity(0.2),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
+                    blurRadius: 14,
+                    offset: const Offset(0, 3),
                   ),
                 ]
               : null,
@@ -432,21 +514,25 @@ class _StalkerPageState extends State<StalkerPage> {
                 color: isSelected ? accentColor : Colors.white.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: isSelected ? Colors.white : Colors.white70, size: 20),
+              child: Icon(icon, color: isSelected ? Colors.white : Colors.white70, size: 19),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
               title,
               style: TextStyle(
                 color: isSelected ? Colors.white : Colors.white70,
-                fontSize: 14,
+                fontSize: 13.5,
                 fontWeight: FontWeight.bold,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 2),
             Text(
               subtitle,
-              style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 10.5),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -455,7 +541,7 @@ class _StalkerPageState extends State<StalkerPage> {
   }
 
   // =========================================================================
-  // FREE FIRE RESULT CARD
+  // 1. FREE FIRE CARD
   // =========================================================================
   Widget _buildFreeFireCard(FreeFireProfile data) {
     return GlassCard(
@@ -464,7 +550,6 @@ class _StalkerPageState extends State<StalkerPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row
           Row(
             children: [
               Container(
@@ -521,7 +606,6 @@ class _StalkerPageState extends State<StalkerPage> {
           const Divider(color: Colors.white12, height: 1),
           const SizedBox(height: 14),
 
-          // Key Stats Grid
           Row(
             children: [
               Expanded(child: _buildMetricTile('Level', '${data.level}', 'EXP: ${Formatters.formatCompactNumber(data.exp)}', Icons.star_rounded, const Color(0xFFFBBF24))),
@@ -543,46 +627,39 @@ class _StalkerPageState extends State<StalkerPage> {
           ),
           const SizedBox(height: 16),
 
-          // Guild / Clan Info
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.04),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white10),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.castle_rounded, color: Color(0xFFFBBF24), size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        data.clanName.isNotEmpty ? '${data.clanName} (Lvl ${data.clanLevel})' : 'Tidak Ada Guild / Solo',
-                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                      if (data.clanName.isNotEmpty)
+          if (data.clanName.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.castle_rounded, color: Color(0xFFFBBF24), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${data.clanName} (Lvl ${data.clanLevel})',
+                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
                         Text(
                           'Anggota: ${data.clanMemberNum} / ${data.clanCapacity}',
                           style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
                         ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                if (data.petName.isNotEmpty) ...[
-                  const Icon(Icons.pets_rounded, color: Color(0xFF38BDF8), size: 18),
-                  const SizedBox(width: 6),
-                  Text('${data.petName} (Lvl ${data.petLevel})', style: const TextStyle(color: Colors.white70, fontSize: 12)),
                 ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
 
-          // Bio Signature
           if (data.signature.isNotEmpty)
             Container(
               width: double.infinity,
@@ -591,33 +668,13 @@ class _StalkerPageState extends State<StalkerPage> {
                 color: Colors.black.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.format_quote_rounded, color: AppColors.textMuted, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      data.signature,
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontStyle: FontStyle.italic),
-                    ),
-                  ),
-                ],
+              child: Text(
+                data.signature,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontStyle: FontStyle.italic),
               ),
             ),
           const SizedBox(height: 14),
 
-          // Timestamps
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Dibuat: ${data.createAt}', style: const TextStyle(color: AppColors.textDisabled, fontSize: 10.5)),
-              Text('Login: ${data.lastLoginAt}', style: const TextStyle(color: AppColors.textDisabled, fontSize: 10.5)),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Share Button
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -630,7 +687,7 @@ class _StalkerPageState extends State<StalkerPage> {
               ),
               onPressed: () {
                 _shareReport(
-                  '🔥 LAPORAN AKUN FREE FIRE',
+                  'LAPORAN AKUN FREE FIRE',
                   'Nickname: ${data.nickname}\nUID: ${data.accountId}\nRegion: ${data.regionName}\nLevel: ${data.level} (EXP: ${data.exp})\nLikes: ${data.liked}\nBR Rank: ${data.rank} (${data.rankingPoints} Pts)\nCS Rank: ${data.csRank} (${data.csRankingPoints} Pts)\nGuild: ${data.clanName.isNotEmpty ? data.clanName : "Solo"}\nBio: ${data.signature}',
                 );
               },
@@ -642,7 +699,7 @@ class _StalkerPageState extends State<StalkerPage> {
   }
 
   // =========================================================================
-  // TIKTOK RESULT CARD
+  // 2. TIKTOK CARD
   // =========================================================================
   Widget _buildTikTokCard(TikTokStalkProfile data) {
     return GlassCard(
@@ -700,7 +757,6 @@ class _StalkerPageState extends State<StalkerPage> {
           const Divider(color: Colors.white12, height: 1),
           const SizedBox(height: 14),
 
-          // Stats Row
           Row(
             children: [
               Expanded(child: _buildMetricTile('Followers', Formatters.formatCompactNumber(data.followersCount), 'Pengikut', Icons.people_rounded, const Color(0xFF38BDF8))),
@@ -714,35 +770,13 @@ class _StalkerPageState extends State<StalkerPage> {
           ),
           const SizedBox(height: 14),
 
-          // Bio
           if (data.signature.isNotEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.04),
-                borderRadius: BorderRadius.circular(12),
-              ),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(12)),
               child: Text(data.signature, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5, height: 1.4)),
             ),
-
-          if (data.bioLink.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.link_rounded, color: AppColors.primary, size: 16),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    data.bioLink,
-                    style: const TextStyle(color: AppColors.primary, fontSize: 12, decoration: TextDecoration.underline),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ],
           const SizedBox(height: 16),
 
           SizedBox(
@@ -757,7 +791,7 @@ class _StalkerPageState extends State<StalkerPage> {
               ),
               onPressed: () {
                 _shareReport(
-                  '🎵 PROFIL TIKTOK',
+                  'PROFIL TIKTOK',
                   'Nama: ${data.nickname} (@${data.username})\nFollowers: ${data.followersCount}\nFollowing: ${data.followingCount}\nTotal Likes: ${data.heartCount}\nTotal Video: ${data.videoCount}\nBio: ${data.signature}',
                 );
               },
@@ -769,7 +803,403 @@ class _StalkerPageState extends State<StalkerPage> {
   }
 
   // =========================================================================
-  // GITHUB RESULT CARD
+  // 3. INSTAGRAM CARD
+  // =========================================================================
+  Widget _buildInstagramCard(InstagramStalkProfile data) {
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      borderRadius: 22,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  color: const Color(0xFF1E1E24),
+                  child: data.profilePicUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: data.profilePicUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => const Icon(Icons.camera_alt_rounded, color: Colors.white38, size: 30),
+                        )
+                      : const Icon(Icons.camera_alt_rounded, color: Colors.white38, size: 30),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            data.fullName,
+                            style: const TextStyle(color: Colors.white, fontSize: 16.5, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (data.isVerified) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.verified_rounded, color: Color(0xFF38BDF8), size: 16),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text('@${data.username}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 14),
+
+          Row(
+            children: [
+              Expanded(child: _buildMetricTile('Posts', Formatters.formatCompactNumber(data.postsCount), 'Postingan', Icons.grid_on_rounded, const Color(0xFFFBBF24))),
+              const SizedBox(width: 10),
+              Expanded(child: _buildMetricTile('Followers', Formatters.formatCompactNumber(data.followersCount), 'Pengikut', Icons.people_rounded, const Color(0xFFE1306C))),
+              const SizedBox(width: 10),
+              Expanded(child: _buildMetricTile('Following', Formatters.formatCompactNumber(data.followingCount), 'Mengikuti', Icons.person_add_rounded, const Color(0xFF38BDF8))),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          if (data.biography.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(12)),
+              child: Text(data.biography, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5, height: 1.4)),
+            ),
+          const SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.share_rounded, size: 16),
+              label: const Text('Bagikan Profil Instagram'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                _shareReport(
+                  'PROFIL INSTAGRAM',
+                  'Nama: ${data.fullName} (@${data.username})\nFollowers: ${data.followersCount}\nFollowing: ${data.followingCount}\nPosts: ${data.postsCount}\nBio: ${data.biography}',
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 4. TWITTER / X CARD
+  // =========================================================================
+  Widget _buildTwitterCard(TwitterStalkProfile data) {
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      borderRadius: 22,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  color: const Color(0xFF1E1E24),
+                  child: data.profileImage.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: data.profileImage,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => const Icon(Icons.flutter_dash_rounded, color: Colors.white38, size: 30),
+                        )
+                      : const Icon(Icons.flutter_dash_rounded, color: Colors.white38, size: 30),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            data.name,
+                            style: const TextStyle(color: Colors.white, fontSize: 16.5, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (data.verified) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.verified_rounded, color: Color(0xFF1DA1F2), size: 16),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text('@${data.username}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 14),
+
+          Row(
+            children: [
+              Expanded(child: _buildMetricTile('Tweets', Formatters.formatCompactNumber(data.tweetsCount), 'Postingan', Icons.tag_rounded, const Color(0xFF1DA1F2))),
+              const SizedBox(width: 8),
+              Expanded(child: _buildMetricTile('Followers', Formatters.formatCompactNumber(data.followersCount), 'Pengikut', Icons.people_rounded, const Color(0xFFA78BFA))),
+              const SizedBox(width: 8),
+              Expanded(child: _buildMetricTile('Following', Formatters.formatCompactNumber(data.followingCount), 'Mengikuti', Icons.person_add_rounded, const Color(0xFF34D399))),
+              const SizedBox(width: 8),
+              Expanded(child: _buildMetricTile('Likes', Formatters.formatCompactNumber(data.likesCount), 'Disukai', Icons.favorite_rounded, const Color(0xFFFE2C55))),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          if (data.description.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(12)),
+              child: Text(data.description, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5, height: 1.4)),
+            ),
+          const SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.share_rounded, size: 16),
+              label: const Text('Bagikan Profil Twitter / X'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                _shareReport(
+                  'PROFIL TWITTER / X',
+                  'Nama: ${data.name} (@${data.username})\nFollowers: ${data.followersCount}\nFollowing: ${data.followingCount}\nTweets: ${data.tweetsCount}\nBio: ${data.description}',
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 5. THREADS CARD
+  // =========================================================================
+  Widget _buildThreadsCard(ThreadsStalkProfile data) {
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      borderRadius: 22,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  color: const Color(0xFF1E1E24),
+                  child: data.profilePicture.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: data.profilePicture,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => const Icon(Icons.alternate_email_rounded, color: Colors.white38, size: 30),
+                        )
+                      : const Icon(Icons.alternate_email_rounded, color: Colors.white38, size: 30),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            data.name,
+                            style: const TextStyle(color: Colors.white, fontSize: 16.5, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (data.isVerified) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.verified_rounded, color: Color(0xFF38BDF8), size: 16),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text('@${data.username}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 14),
+
+          Row(
+            children: [
+              Expanded(child: _buildMetricTile('Followers', Formatters.formatCompactNumber(data.followers), 'Pengikut', Icons.people_rounded, const Color(0xFF38BDF8))),
+              const SizedBox(width: 10),
+              Expanded(child: _buildMetricTile('Threads', Formatters.formatCompactNumber(data.threadsCount), 'Utas', Icons.chat_bubble_rounded, const Color(0xFFA78BFA))),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          if (data.bio.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(12)),
+              child: Text(data.bio, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5, height: 1.4)),
+            ),
+          const SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.share_rounded, size: 16),
+              label: const Text('Bagikan Profil Threads'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                _shareReport(
+                  'PROFIL THREADS',
+                  'Nama: ${data.name} (@${data.username})\nFollowers: ${data.followers}\nBio: ${data.bio}',
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 6. YOUTUBE CARD
+  // =========================================================================
+  Widget _buildYouTubeCard(YouTubeStalkProfile data) {
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      borderRadius: 22,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  color: const Color(0xFF1E1E24),
+                  child: data.avatarUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: data.avatarUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => const Icon(Icons.play_circle_fill_rounded, color: Colors.white38, size: 30),
+                        )
+                      : const Icon(Icons.play_circle_fill_rounded, color: Colors.white38, size: 30),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data.name,
+                      style: const TextStyle(color: Colors.white, fontSize: 16.5, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(data.username, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 14),
+
+          Row(
+            children: [
+              Expanded(child: _buildMetricTile('Subscribers', data.subscriberCount, 'Pelanggan', Icons.subscriptions_rounded, const Color(0xFFFF0000))),
+              const SizedBox(width: 10),
+              Expanded(child: _buildMetricTile('Videos', data.videoCount, 'Total Konten', Icons.video_collection_rounded, const Color(0xFF38BDF8))),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          if (data.description.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(12)),
+              child: Text(data.description, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5, height: 1.4)),
+            ),
+          const SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.share_rounded, size: 16),
+              label: const Text('Bagikan Channel YouTube'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                _shareReport(
+                  'CHANNEL YOUTUBE',
+                  'Channel: ${data.name} (${data.username})\nSubscribers: ${data.subscriberCount}\nVideos: ${data.videoCount}\nLink: ${data.channelUrl}',
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 7. GITHUB CARD
   // =========================================================================
   Widget _buildGitHubCard(GitHubStalkProfile data) {
     return GlassCard(
@@ -834,18 +1264,9 @@ class _StalkerPageState extends State<StalkerPage> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.04),
-                borderRadius: BorderRadius.circular(12),
-              ),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(12)),
               child: Text(data.bio, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5, height: 1.4)),
             ),
-          const SizedBox(height: 10),
-
-          if (data.company.isNotEmpty) _buildDetailRow(Icons.business_rounded, data.company),
-          if (data.location.isNotEmpty) _buildDetailRow(Icons.location_on_rounded, data.location),
-          if (data.blog.isNotEmpty) _buildDetailRow(Icons.language_rounded, data.blog),
-          if (data.email.isNotEmpty) _buildDetailRow(Icons.email_rounded, data.email),
           const SizedBox(height: 16),
 
           SizedBox(
@@ -860,8 +1281,8 @@ class _StalkerPageState extends State<StalkerPage> {
               ),
               onPressed: () {
                 _shareReport(
-                  '🐙 PROFIL GITHUB DEVELOPER',
-                  'Nama: ${data.name} (@${data.username})\nBio: ${data.bio}\nPublic Repos: ${data.publicRepos}\nFollowers: ${data.followers}\nFollowing: ${data.following}\nLink: ${data.profileUrl}',
+                  'PROFIL GITHUB DEVELOPER',
+                  'Nama: ${data.name} (@${data.username})\nBio: ${data.bio}\nPublic Repos: ${data.publicRepos}\nFollowers: ${data.followers}\nLink: ${data.profileUrl}',
                 );
               },
             ),
@@ -872,7 +1293,7 @@ class _StalkerPageState extends State<StalkerPage> {
   }
 
   // =========================================================================
-  // ROBLOX RESULT CARD
+  // 8. ROBLOX CARD
   // =========================================================================
   Widget _buildRobloxCard(RobloxStalkProfile data) {
     return GlassCard(
@@ -948,7 +1369,6 @@ class _StalkerPageState extends State<StalkerPage> {
           const Divider(color: Colors.white12, height: 1),
           const SizedBox(height: 14),
 
-          // Stats
           Row(
             children: [
               Expanded(child: _buildMetricTile('Friends', '${data.friendsCount}', 'Teman', Icons.group_rounded, const Color(0xFF38BDF8))),
@@ -964,10 +1384,7 @@ class _StalkerPageState extends State<StalkerPage> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.04),
-                borderRadius: BorderRadius.circular(12),
-              ),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(12)),
               child: Text(data.description, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5, height: 1.4)),
             ),
           const SizedBox(height: 16),
@@ -984,7 +1401,7 @@ class _StalkerPageState extends State<StalkerPage> {
               ),
               onPressed: () {
                 _shareReport(
-                  '🧱 PROFIL ROBLOX PLAYER',
+                  'PROFIL ROBLOX PLAYER',
                   'Display Name: ${data.displayName}\nUsername: @${data.username}\nUser ID: ${data.userId}\nStatus: ${data.presence}\nFriends: ${data.friendsCount}\nFollowers: ${data.followersCount}\nBio: ${data.description}',
                 );
               },
@@ -1017,21 +1434,6 @@ class _StalkerPageState extends State<StalkerPage> {
           Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(height: 1),
           Text(subtitle, style: const TextStyle(color: AppColors.textMuted, fontSize: 9.5), maxLines: 1, overflow: TextOverflow.ellipsis),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.textMuted, size: 14),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(text, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-          ),
         ],
       ),
     );

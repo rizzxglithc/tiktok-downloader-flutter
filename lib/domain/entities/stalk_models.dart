@@ -3,10 +3,15 @@ import 'package:intl/intl.dart';
 enum StalkPlatform {
   freefire,
   tiktok,
+  instagram,
+  twitter,
+  threads,
+  youtube,
   github,
   roblox,
 }
 
+// 1. FREE FIRE
 class FreeFireProfile {
   final String accountId;
   final String nickname;
@@ -128,6 +133,7 @@ class FreeFireProfile {
   }
 }
 
+// 2. TIKTOK
 class TikTokStalkProfile {
   final String username;
   final String nickname;
@@ -178,6 +184,191 @@ class TikTokStalkProfile {
   }
 }
 
+// 3. TWITTER / X
+class TwitterStalkProfile {
+  final String id;
+  final String username;
+  final String name;
+  final bool verified;
+  final String verifiedType;
+  final String description;
+  final String location;
+  final String createdAt;
+  final int tweetsCount;
+  final int followingCount;
+  final int followersCount;
+  final int likesCount;
+  final int mediaCount;
+  final String profileImage;
+  final String bannerImage;
+
+  const TwitterStalkProfile({
+    required this.id,
+    required this.username,
+    required this.name,
+    required this.verified,
+    required this.verifiedType,
+    required this.description,
+    required this.location,
+    required this.createdAt,
+    required this.tweetsCount,
+    required this.followingCount,
+    required this.followersCount,
+    required this.likesCount,
+    required this.mediaCount,
+    required this.profileImage,
+    required this.bannerImage,
+  });
+
+  factory TwitterStalkProfile.fromJson(Map<String, dynamic> json) {
+    final stats = (json['stats'] as Map<String, dynamic>?) ?? {};
+    final profile = (json['profile'] as Map<String, dynamic>?) ?? {};
+
+    return TwitterStalkProfile(
+      id: (json['id'] ?? '').toString(),
+      username: (json['username'] ?? '').toString(),
+      name: (json['name'] ?? json['username'] ?? 'Twitter User').toString(),
+      verified: json['verified'] == true,
+      verifiedType: (json['verified_type'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      location: (json['location'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+      tweetsCount: int.tryParse(stats['tweets']?.toString() ?? '0') ?? 0,
+      followingCount: int.tryParse(stats['following']?.toString() ?? '0') ?? 0,
+      followersCount: int.tryParse(stats['followers']?.toString() ?? '0') ?? 0,
+      likesCount: int.tryParse(stats['likes']?.toString() ?? '0') ?? 0,
+      mediaCount: int.tryParse(stats['media']?.toString() ?? '0') ?? 0,
+      profileImage: (profile['image'] ?? json['profile_image_url'] ?? '').toString(),
+      bannerImage: (profile['banner'] ?? json['profile_banner_url'] ?? '').toString(),
+    );
+  }
+}
+
+// 4. THREADS
+class ThreadsStalkProfile {
+  final String id;
+  final String username;
+  final String name;
+  final String bio;
+  final String profilePicture;
+  final bool isVerified;
+  final int followers;
+  final int threadsCount;
+  final List<String> links;
+
+  const ThreadsStalkProfile({
+    required this.id,
+    required this.username,
+    required this.name,
+    required this.bio,
+    required this.profilePicture,
+    required this.isVerified,
+    required this.followers,
+    required this.threadsCount,
+    required this.links,
+  });
+
+  factory ThreadsStalkProfile.fromJson(Map<String, dynamic> json) {
+    return ThreadsStalkProfile(
+      id: (json['id'] ?? '').toString(),
+      username: (json['username'] ?? '').toString(),
+      name: (json['name'] ?? json['username'] ?? 'Threads User').toString(),
+      bio: (json['bio'] ?? json['biography'] ?? '').toString(),
+      profilePicture: (json['hd_profile_picture'] ?? json['profile_picture'] ?? json['profile_pic_url'] ?? '').toString(),
+      isVerified: json['is_verified'] == true,
+      followers: int.tryParse(json['followers']?.toString() ?? json['follower_count']?.toString() ?? '0') ?? 0,
+      threadsCount: int.tryParse(json['threads_count']?.toString() ?? '0') ?? 0,
+      links: (json['links'] as List?)?.map((e) => e.toString()).toList() ?? [],
+    );
+  }
+}
+
+// 5. INSTAGRAM
+class InstagramStalkProfile {
+  final String username;
+  final String fullName;
+  final String biography;
+  final String externalUrl;
+  final String profilePicUrl;
+  final bool isPrivate;
+  final bool isVerified;
+  final int followersCount;
+  final int followingCount;
+  final int postsCount;
+
+  const InstagramStalkProfile({
+    required this.username,
+    required this.fullName,
+    required this.biography,
+    required this.externalUrl,
+    required this.profilePicUrl,
+    required this.isPrivate,
+    required this.isVerified,
+    required this.followersCount,
+    required this.followingCount,
+    required this.postsCount,
+  });
+
+  factory InstagramStalkProfile.fromJson(Map<String, dynamic> json) {
+    return InstagramStalkProfile(
+      username: (json['username'] ?? '').toString(),
+      fullName: (json['full_name'] ?? json['username'] ?? 'Instagram User').toString(),
+      biography: (json['biography'] ?? '').toString(),
+      externalUrl: (json['external_url'] ?? '').toString(),
+      profilePicUrl: (json['profile_pic_url'] ?? '').toString(),
+      isPrivate: json['is_private'] == true,
+      isVerified: json['is_verified'] == true,
+      followersCount: int.tryParse(json['followers_count']?.toString() ?? '0') ?? 0,
+      followingCount: int.tryParse(json['following_count']?.toString() ?? '0') ?? 0,
+      postsCount: int.tryParse(json['posts_count']?.toString() ?? '0') ?? 0,
+    );
+  }
+}
+
+// 6. YOUTUBE
+class YouTubeVideoItem {
+  final String videoId;
+  final String title;
+  final String thumbnail;
+  final String publishedTime;
+  final String viewCount;
+  final String duration;
+  final String videoUrl;
+
+  const YouTubeVideoItem({
+    required this.videoId,
+    required this.title,
+    required this.thumbnail,
+    required this.publishedTime,
+    required this.viewCount,
+    required this.duration,
+    required this.videoUrl,
+  });
+}
+
+class YouTubeStalkProfile {
+  final String username;
+  final String name;
+  final String subscriberCount;
+  final String videoCount;
+  final String avatarUrl;
+  final String channelUrl;
+  final String description;
+  final List<YouTubeVideoItem> latestVideos;
+
+  const YouTubeStalkProfile({
+    required this.username,
+    required this.name,
+    required this.subscriberCount,
+    required this.videoCount,
+    required this.avatarUrl,
+    required this.channelUrl,
+    required this.description,
+    required this.latestVideos,
+  });
+}
+
+// 7. GITHUB
 class GitHubStalkProfile {
   final String username;
   final String name;
@@ -234,6 +425,7 @@ class GitHubStalkProfile {
   }
 }
 
+// 8. ROBLOX
 class RobloxStalkProfile {
   final int userId;
   final String username;

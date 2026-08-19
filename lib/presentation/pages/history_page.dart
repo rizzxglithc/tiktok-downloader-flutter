@@ -246,25 +246,29 @@ class _HistoryPageState extends State<HistoryPage> {
                   child: Row(
                     children: [
                       _buildFilterChip(
+                        icon: Icons.all_inclusive_rounded,
                         label: 'Semua (${allItems.length})',
                         isSelected: historyProvider.selectedFilter == HistoryFilter.all,
                         onTap: () => historyProvider.setFilter(HistoryFilter.all),
                       ),
                       const SizedBox(width: 8),
                       _buildFilterChip(
-                        label: '🎬 Video MP4 (${allItems.where((i) => i.isVideo).length})',
+                        icon: Icons.videocam_rounded,
+                        label: 'Video MP4 (${allItems.where((i) => i.isVideo).length})',
                         isSelected: historyProvider.selectedFilter == HistoryFilter.video,
                         onTap: () => historyProvider.setFilter(HistoryFilter.video),
                       ),
                       const SizedBox(width: 8),
                       _buildFilterChip(
-                        label: '🎵 Audio MP3 (${allItems.where((i) => !i.isVideo && !i.isPhotos).length})',
+                        icon: Icons.audiotrack_rounded,
+                        label: 'Audio MP3 (${allItems.where((i) => !i.isVideo && !i.isPhotos).length})',
                         isSelected: historyProvider.selectedFilter == HistoryFilter.audio,
                         onTap: () => historyProvider.setFilter(HistoryFilter.audio),
                       ),
                       const SizedBox(width: 8),
                       _buildFilterChip(
-                        label: '🖼️ Slide Foto (${allItems.where((i) => i.isPhotos).length})',
+                        icon: Icons.photo_library_rounded,
+                        label: 'Slide Foto (${allItems.where((i) => i.isPhotos).length})',
                         isSelected: historyProvider.selectedFilter == HistoryFilter.photos,
                         onTap: () => historyProvider.setFilter(HistoryFilter.photos),
                       ),
@@ -571,6 +575,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _buildFilterChip({
+    IconData? icon,
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
@@ -579,7 +584,7 @@ class _HistoryPageState extends State<HistoryPage> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : AppColors.surface,
           borderRadius: BorderRadius.circular(16),
@@ -588,13 +593,26 @@ class _HistoryPageState extends State<HistoryPage> {
             width: 1,
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.black : AppColors.textSecondary,
-            fontSize: 11.5,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 13.5,
+                color: isSelected ? Colors.black : AppColors.textMuted,
+              ),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.black : AppColors.textSecondary,
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

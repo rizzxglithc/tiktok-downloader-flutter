@@ -14,12 +14,20 @@ class StalkerProvider extends ChangeNotifier {
 
   FreeFireProfile? _freeFireResult;
   TikTokStalkProfile? _tikTokResult;
+  TwitterStalkProfile? _twitterResult;
+  ThreadsStalkProfile? _threadsResult;
+  InstagramStalkProfile? _instagramResult;
+  YouTubeStalkProfile? _youTubeResult;
   GitHubStalkProfile? _gitHubResult;
   RobloxStalkProfile? _robloxResult;
 
   final Map<StalkPlatform, List<String>> _recentSearches = {
     StalkPlatform.freefire: ['123456789'],
     StalkPlatform.tiktok: ['mrbeast', 'tiktok'],
+    StalkPlatform.instagram: ['instagram', 'cristiano'],
+    StalkPlatform.twitter: ['elonmusk', 'x'],
+    StalkPlatform.threads: ['zuck', 'google'],
+    StalkPlatform.youtube: ['MrBeast', 'YouTube'],
     StalkPlatform.github: ['torvalds', 'flutter'],
     StalkPlatform.roblox: ['Roblox', 'builderman'],
   };
@@ -30,20 +38,30 @@ class StalkerProvider extends ChangeNotifier {
 
   FreeFireProfile? get freeFireResult => _freeFireResult;
   TikTokStalkProfile? get tikTokResult => _tikTokResult;
+  TwitterStalkProfile? get twitterResult => _twitterResult;
+  ThreadsStalkProfile? get threadsResult => _threadsResult;
+  InstagramStalkProfile? get instagramResult => _instagramResult;
+  YouTubeStalkProfile? get youTubeResult => _youTubeResult;
   GitHubStalkProfile? get gitHubResult => _gitHubResult;
   RobloxStalkProfile? get robloxResult => _robloxResult;
 
   List<String> get recentSearches => _recentSearches[_currentPlatform] ?? [];
 
   void setPlatform(StalkPlatform platform) {
-    _currentPlatform = platform;
-    _errorMessage = null;
-    notifyListeners();
+    if (_currentPlatform != platform) {
+      _currentPlatform = platform;
+      // Otomatis clear hasil pencarian sebelumnya & error saat ganti platform
+      clearResult();
+    }
   }
 
   void clearResult() {
     _freeFireResult = null;
     _tikTokResult = null;
+    _twitterResult = null;
+    _threadsResult = null;
+    _instagramResult = null;
+    _youTubeResult = null;
     _gitHubResult = null;
     _robloxResult = null;
     _errorMessage = null;
@@ -62,6 +80,10 @@ class StalkerProvider extends ChangeNotifier {
     _errorMessage = null;
     _freeFireResult = null;
     _tikTokResult = null;
+    _twitterResult = null;
+    _threadsResult = null;
+    _instagramResult = null;
+    _youTubeResult = null;
     _gitHubResult = null;
     _robloxResult = null;
     notifyListeners();
@@ -73,6 +95,18 @@ class StalkerProvider extends ChangeNotifier {
           break;
         case StalkPlatform.tiktok:
           _tikTokResult = await _dataSource.stalkTikTok(cleanQuery);
+          break;
+        case StalkPlatform.instagram:
+          _instagramResult = await _dataSource.stalkInstagram(cleanQuery);
+          break;
+        case StalkPlatform.twitter:
+          _twitterResult = await _dataSource.stalkTwitter(cleanQuery);
+          break;
+        case StalkPlatform.threads:
+          _threadsResult = await _dataSource.stalkThreads(cleanQuery);
+          break;
+        case StalkPlatform.youtube:
+          _youTubeResult = await _dataSource.stalkYouTube(cleanQuery);
           break;
         case StalkPlatform.github:
           _gitHubResult = await _dataSource.stalkGitHub(cleanQuery);
