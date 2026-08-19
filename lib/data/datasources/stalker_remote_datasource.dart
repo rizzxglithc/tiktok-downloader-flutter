@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import '../../core/errors/exceptions.dart';
+import '../../core/errors/app_exceptions.dart';
 import '../../domain/entities/stalk_models.dart';
 
 class StalkerRemoteDataSource {
