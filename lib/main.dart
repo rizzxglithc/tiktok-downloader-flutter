@@ -17,6 +17,7 @@ import 'presentation/pages/main_navigation_page.dart';
 import 'presentation/providers/download_provider.dart';
 import 'presentation/providers/history_provider.dart';
 import 'presentation/providers/settings_provider.dart';
+import 'presentation/providers/stalker_provider.dart';
 import 'presentation/providers/tiktok_provider.dart';
 import 'services/download_engine.dart';
 import 'services/settings_service.dart';
@@ -76,6 +77,9 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => SettingsProvider(settingsService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => StalkerProvider(),
         ),
       ],
       child: const TikTokDownloaderApp(),

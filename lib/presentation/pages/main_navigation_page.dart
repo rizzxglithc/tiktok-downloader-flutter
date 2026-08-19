@@ -6,6 +6,7 @@ import '../../services/quick_share_service.dart';
 import '../providers/download_provider.dart';
 import '../providers/history_provider.dart';
 import 'home_page.dart';
+import 'stalker_page.dart';
 import 'downloads_page.dart';
 import 'history_page.dart';
 import 'settings_page.dart';
@@ -22,6 +23,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
 
   final List<Widget> _pages = const [
     HomePage(),
+    StalkerPage(),
     DownloadsPage(),
     HistoryPage(),
     SettingsPage(),
@@ -69,16 +71,16 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
 
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(isCompact ? 12 : 16, 0, isCompact ? 12 : 16, 12),
+        padding: EdgeInsets.fromLTRB(isCompact ? 8 : 12, 0, isCompact ? 8 : 12, 10),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(30),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
             child: Container(
-              height: 66,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              height: 64,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
               decoration: BoxDecoration(
-                color: const Color(0xFF121214).withOpacity(0.92),
+                color: const Color(0xFF121214).withOpacity(0.94),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
                   color: const Color(0xFF28282C),
@@ -93,12 +95,13 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
                 ],
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildNavItem(0, Icons.home_rounded, 'Beranda'),
-                  _buildNavItem(1, Icons.download_rounded, 'Unduhan', badgeCount: activeCount),
-                  _buildNavItem(2, Icons.history_rounded, 'Riwayat'),
-                  _buildNavItem(3, Icons.settings_rounded, 'Setelan'),
+                  _buildNavItem(0, Icons.download_for_offline_rounded, 'Unduh'),
+                  _buildNavItem(1, Icons.radar_rounded, 'Stalk'),
+                  _buildNavItem(2, Icons.cloud_download_rounded, 'Proses', badgeCount: activeCount),
+                  _buildNavItem(3, Icons.history_rounded, 'Riwayat'),
+                  _buildNavItem(4, Icons.settings_rounded, 'Setelan'),
                 ],
               ),
             ),
@@ -114,7 +117,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     return GestureDetector(
       onTap: () {
         setState(() => _currentIndex = index);
-        if (index == 2) {
+        if (index == 3) {
           context.read<HistoryProvider>().loadHistory();
         }
       },
@@ -123,17 +126,17 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 15 : 10,
-          vertical: 9,
+          horizontal: isSelected ? 12 : 7,
+          vertical: 8,
         ),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: isSelected
               ? [
                   BoxShadow(
                     color: Colors.white.withOpacity(0.25),
-                    blurRadius: 12,
+                    blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
                 ]
