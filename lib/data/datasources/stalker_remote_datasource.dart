@@ -295,7 +295,7 @@ class StalkerRemoteDataSource {
   }
 
   // =========================================================================
-  // 5. TWITTER / X STALKER (GraphQL Scraper & Fallbacks)
+  // 5. TWITTER / X STALKER (Syndication Timeline API + Fallbacks)
   // =========================================================================
   Future<TwitterStalkProfile> stalkTwitter(String username) async {
     final cleanUser = username.trim().replaceAll('@', '');
@@ -303,7 +303,62 @@ class StalkerRemoteDataSource {
       throw const ApiException('Masukkan username Twitter/X yang valid.');
     }
 
-    // 1. Twitter GraphQL API with user-provided auth bearer & headers
+    // 1. Primary: Twitter Syndication Profile API (Direct from Twitter servers, unblocked)
+    try {
+      final url = 'https://syndication.twitter.com/srv/timeline-profile/screen-name/$cleanUser';
+      final response = await _dio.get(
+        url,
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+        ),
+      );
+
+      final html = response.data.toString();
+      final match = RegExp(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>').firstMatch(html);
+      if (match != null) {
+        final Map<String, dynamic> json = jsonDecode(match.group(1)!);
+        final timeline = json['props']?['pageProps']?['timeline'] as Map<String, dynamic>?;
+        final List entries = timeline?['entries'] ?? [];
+
+        for (final entry in entries) {
+          final tweet = entry['content']?['tweet'] as Map<String, dynamic>?;
+          final user = tweet?['user'] as Map<String, dynamic>?;
+          if (user != null && (user['screen_name'] ?? '').toString().toLowerCase() == cleanUser.toLowerCase()) {
+            String profileImg = (user['profile_image_url_https'] ?? '').toString();
+            if (profileImg.isNotEmpty) {
+              profileImg = profileImg.replaceAll('_normal.', '_400x400.');
+            }
+
+            final banner = (user['profile_banner_url'] ?? '').toString();
+
+            return TwitterStalkProfile(
+              id: (user['id_str'] ?? user['id'] ?? cleanUser).toString(),
+              username: (user['screen_name'] ?? cleanUser).toString(),
+              name: (user['name'] ?? cleanUser).toString(),
+              verified: user['is_blue_verified'] == true || user['verified'] == true,
+              verifiedType: (user['highlightedLabel']?['badge']?['badgeType'] ?? '').toString(),
+              description: (user['description'] ?? '').toString(),
+              location: (user['location'] ?? '').toString(),
+              createdAt: (user['created_at'] ?? '').toString(),
+              tweetsCount: int.tryParse(user['statuses_count']?.toString() ?? '0') ?? 0,
+              followingCount: int.tryParse(user['friends_count']?.toString() ?? '0') ?? 0,
+              followersCount: int.tryParse(user['followers_count']?.toString() ?? '0') ?? 0,
+              likesCount: int.tryParse(user['favourites_count']?.toString() ?? '0') ?? 0,
+              mediaCount: int.tryParse(user['media_count']?.toString() ?? '0') ?? 0,
+              profileImage: profileImg,
+              bannerImage: banner,
+            );
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Secondary: Twitter GraphQL API
     try {
       final url = 'https://x.com/i/api/graphql/32pL5BWe9WKeSK1MoPvFQQ/UserByScreenName?variables=%7B%22screen_name%22%3A%22$cleanUser%22%7D&features=%7B%22hidden_profile_subscriptions_enabled%22%3Atrue%2C%22profile_label_improvements_pcf_label_in_post_enabled%22%3Atrue%2C%22rweb_tipjar_consumption_enabled%22%3Atrue%2C%22responsive_web_graphql_exclude_directive_enabled%22%3Atrue%2C%22verified_phone_label_enabled%22%3Afalse%2C%22subscriptions_verification_info_is_identity_verified_enabled%22%3Atrue%2C%22subscriptions_verification_info_verified_since_enabled%22%3Atrue%2C%22highlights_tweets_tab_ui_enabled%22%3Atrue%2C%22responsive_web_twitter_article_notes_tab_enabled%22%3Atrue%2C%22subscriptions_feature_can_gift_premium%22%3Atrue%2C%22creator_subscriptions_tweet_preview_api_enabled%22%3Atrue%2C%22responsive_web_graphql_skip_user_profile_image_extensions_enabled%22%3Afalse%2C%22responsive_web_graphql_timeline_navigation_enabled%22%3Atrue%7D&fieldToggles=%7B%22withAuxiliaryUserLabels%22%3Afalse%7D';
       
@@ -313,7 +368,6 @@ class StalkerRemoteDataSource {
           headers: {
             'authority': 'x.com',
             'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-            'cookie': 'guest_id=v1%3A173113403636768133; night_mode=2; auth_token=72f94efba48d660d8b1220c5a1fa5b7a03a77c48; ct0=a0b42c9fa97da6bf8505d9fd66cbe549c3b4a33d028d877fb0ae9a1d1b61d814fa831a4f097249ee4dea9a41f5050d12bda9806ce1816e5522572b2f0a81a3bc4f9a9bd2f2fdf4edef38a7759d03648f;',
             'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36',
           },
         ),
@@ -347,7 +401,7 @@ class StalkerRemoteDataSource {
       }
     } catch (_) {}
 
-    // 2. Web OpenGraph & Metadata Fallback
+    // 3. Web OpenGraph & Metadata Fallback
     try {
       final res = await _dio.get(
         'https://x.com/$cleanUser',
