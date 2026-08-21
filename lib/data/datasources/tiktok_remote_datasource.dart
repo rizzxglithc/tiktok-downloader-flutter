@@ -1670,9 +1670,68 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
   }
 
   // ==========================================
-  // 13. Douyin Handler
+  // 13. Douyin Handler (snaptik.fi + multi-fallback)
   // ==========================================
   Future<TikTokVideoModel> _fetchDouyinDetails(String url) async {
+    // 1. Primary: Snaptik.fi Douyin Downloader (User-provided scraper)
+    try {
+      final response = await apiClient.dio.post(
+        'https://snaptik.fi/api/tiktok',
+        data: {'url': url},
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'https://snaptik.fi',
+            'Referer': 'https://snaptik.fi/id/douyin-story-downloader',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36',
+            'Sec-Ch-Ua': '"Chromium";v="139", "Not;A=Brand";v="99"',
+            'Sec-Ch-Ua-Mobile': '?1',
+            'Sec-Ch-Ua-Platform': '"Android"',
+          },
+        ),
+      );
+
+      final data = response.data is Map<String, dynamic> ? response.data : jsonDecode(response.data.toString());
+      if (data != null && (data['status'] == 'tunnel' || data['status'] == true || data['download_link'] != null)) {
+        final title = (data['title'] ?? data['description'] ?? 'Douyin Video').toString();
+        final artist = (data['artist'] ?? data['author']?['nickname'] ?? 'Douyin Creator').toString();
+        final cover = (data['cover'] ?? data['author']?['avatar'] ?? '').toString();
+        
+        final dlLink = data['download_link'] as Map<String, dynamic>?;
+        final videoUrl = (dlLink?['no_watermark'] ?? dlLink?['watermark'] ?? data['video'] ?? '').toString();
+        final audioUrl = (dlLink?['mp3'] ?? data['audio'] ?? '').toString();
+        final duration = int.tryParse(data['duration']?.toString() ?? '0') ?? 0;
+        final stats = data['statistics'] as Map<String, dynamic>? ?? {};
+
+        // Slideshow / Photo support
+        final photosList = data['photos'] as List? ?? [];
+        final List<String> images = photosList.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+
+        final isSlideshow = images.isNotEmpty;
+
+        return TikTokVideoModel.fromUniversalMedia(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          originalUrl: url,
+          title: title,
+          authorName: artist,
+          authorUsername: '@douyin',
+          authorAvatar: cover,
+          coverUrl: cover,
+          videoUrl: videoUrl,
+          musicUrl: audioUrl,
+          duration: duration > 1000 ? (duration ~/ 1000) : duration,
+          diggCount: int.tryParse(stats['likes']?.toString() ?? '0') ?? 0,
+          commentCount: int.tryParse(stats['comments']?.toString() ?? '0') ?? 0,
+          shareCount: int.tryParse(stats['shares']?.toString() ?? '0') ?? 0,
+          playCount: int.tryParse(stats['views']?.toString() ?? '0') ?? 0,
+          images: images,
+          platform: MediaPlatform.douyin,
+          contentType: isSlideshow ? MediaContentType.photos : (videoUrl.isNotEmpty ? MediaContentType.video : MediaContentType.audio),
+        );
+      }
+    } catch (_) {}
+
+    // 2. Secondary Fallback: Tioo Douyin API
     try {
       final res = await apiClient.dio.get('https://backend1.tioo.eu.org/douyin?url=${Uri.encodeComponent(url)}');
       if (res.data is Map && res.data['result'] != null) {
@@ -1693,7 +1752,7 @@ class TikTokRemoteDataSourceImpl implements TikTokRemoteDataSource {
       }
     } catch (_) {}
 
-    throw const ApiException('Gagal memproses video Douyin.');
+    throw const ApiException('Gagal memproses video atau story Douyin.');
   }
 
   // ==========================================

@@ -361,6 +361,8 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     _buildPlatformBadge(Icons.music_video_rounded, 'TikTok'),
                     const SizedBox(width: 8),
+                    _buildPlatformBadge(Icons.video_library_rounded, 'Douyin'),
+                    const SizedBox(width: 8),
                     _buildPlatformBadge(Icons.camera_alt_rounded, 'Instagram'),
                     const SizedBox(width: 8),
                     _buildPlatformBadge(Icons.facebook_rounded, 'Facebook'),
