@@ -8,11 +8,10 @@ class StalkerProvider extends ChangeNotifier {
   StalkerProvider({StalkerRemoteDataSource? dataSource})
       : _dataSource = dataSource ?? StalkerRemoteDataSource();
 
-  StalkPlatform _currentPlatform = StalkPlatform.freefire;
+  StalkPlatform _currentPlatform = StalkPlatform.tiktok;
   bool _isLoading = false;
   String? _errorMessage;
 
-  FreeFireProfile? _freeFireResult;
   TikTokStalkProfile? _tikTokResult;
   TwitterStalkProfile? _twitterResult;
   ThreadsStalkProfile? _threadsResult;
@@ -22,7 +21,6 @@ class StalkerProvider extends ChangeNotifier {
   RobloxStalkProfile? _robloxResult;
 
   final Map<StalkPlatform, List<String>> _recentSearches = {
-    StalkPlatform.freefire: ['123456789'],
     StalkPlatform.tiktok: ['mrbeast', 'tiktok'],
     StalkPlatform.instagram: ['instagram', 'cristiano'],
     StalkPlatform.twitter: ['elonmusk', 'x'],
@@ -36,7 +34,6 @@ class StalkerProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  FreeFireProfile? get freeFireResult => _freeFireResult;
   TikTokStalkProfile? get tikTokResult => _tikTokResult;
   TwitterStalkProfile? get twitterResult => _twitterResult;
   ThreadsStalkProfile? get threadsResult => _threadsResult;
@@ -56,7 +53,6 @@ class StalkerProvider extends ChangeNotifier {
   }
 
   void clearResult() {
-    _freeFireResult = null;
     _tikTokResult = null;
     _twitterResult = null;
     _threadsResult = null;
@@ -78,7 +74,6 @@ class StalkerProvider extends ChangeNotifier {
 
     _isLoading = true;
     _errorMessage = null;
-    _freeFireResult = null;
     _tikTokResult = null;
     _twitterResult = null;
     _threadsResult = null;
@@ -90,9 +85,6 @@ class StalkerProvider extends ChangeNotifier {
 
     try {
       switch (_currentPlatform) {
-        case StalkPlatform.freefire:
-          _freeFireResult = await _dataSource.stalkFreeFire(cleanQuery);
-          break;
         case StalkPlatform.tiktok:
           _tikTokResult = await _dataSource.stalkTikTok(cleanQuery);
           break;

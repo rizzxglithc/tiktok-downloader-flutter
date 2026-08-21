@@ -18,8 +18,11 @@ class HistoryPage extends StatefulWidget {
   State<HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends State<HistoryPage> {
+class _HistoryPageState extends State<HistoryPage> with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -112,6 +115,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final historyProvider = context.watch<HistoryProvider>();
     final items = historyProvider.filteredItems;
     final allItems = historyProvider.allItems;

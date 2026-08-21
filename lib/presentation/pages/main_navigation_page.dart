@@ -20,6 +20,7 @@ class MainNavigationPage extends StatefulWidget {
 
 class _MainNavigationPageState extends State<MainNavigationPage> {
   int _currentIndex = 0;
+  late final PageController _pageController;
 
   final List<Widget> _pages = const [
     HomePage(),
@@ -32,6 +33,8 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _currentIndex);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final downloadProvider = context.read<DownloadProvider>();
       final historyProvider = context.read<HistoryProvider>();
@@ -44,9 +47,34 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       QuickShareService.onSharedUrlReceived.listen((_) {
         if (mounted && _currentIndex != 0) {
           setState(() => _currentIndex = 0);
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(0);
+          }
         }
       });
     });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onTabSelected(int index) {
+    if (_currentIndex != index) {
+      setState(() => _currentIndex = index);
+      if (_pageController.hasClients) {
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
+      if (index == 3) {
+        context.read<HistoryProvider>().loadHistory();
+      }
+    }
   }
 
   @override
@@ -57,8 +85,15 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       extendBody: true,
-      body: IndexedStack(
-        index: _currentIndex,
+      body: PageView(
+        controller: _pageController,
+        physics: const BouncingScrollPhysics(),
+        onPageChanged: (index) {
+          setState(() => _currentIndex = index);
+          if (index == 3) {
+            context.read<HistoryProvider>().loadHistory();
+          }
+        },
         children: _pages,
       ),
       bottomNavigationBar: _buildPremiumFloatingNavbar(activeCount),
@@ -115,12 +150,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     final isSelected = _currentIndex == index;
 
     return GestureDetector(
-      onTap: () {
-        setState(() => _currentIndex = index);
-        if (index == 3) {
-          context.read<HistoryProvider>().loadHistory();
-        }
-      },
+      onTap: () => _onTabSelected(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),

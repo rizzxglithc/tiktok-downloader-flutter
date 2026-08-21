@@ -22,11 +22,14 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   final TextEditingController _urlController = TextEditingController();
   String? _errorMessage;
   MediaPlatform? _detectedPlatform;
   StreamSubscription<String>? _shareSubscription;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -177,6 +180,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final tiktokProvider = context.watch<TikTokProvider>();
     final historyProvider = context.watch<HistoryProvider>();
     final screenWidth = MediaQuery.of(context).size.width;

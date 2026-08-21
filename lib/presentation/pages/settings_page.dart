@@ -15,7 +15,10 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends State<SettingsPage> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
@@ -59,14 +62,19 @@ class _SettingsPageState extends State<SettingsPage> {
             _GuideStep(
               step: '3',
               title: 'Pilih "MyDownloader"',
-              desc: 'Pilih MyDownloader di daftar menu, aplikasi akan otomatis memproses tautan tanpa copy-paste manual!',
+              desc: 'Pilih MyDownloader di menu aplikasi HP. Unduhan akan otomatis terproses tanpa ribet salin tautan!',
             ),
           ],
         ),
         actions: [
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Mengerti', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -75,7 +83,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final settings = context.watch<SettingsProvider>();
+    final history = context.watch<HistoryProvider>();
 
     return Scaffold(
       backgroundColor: AppColors.background,

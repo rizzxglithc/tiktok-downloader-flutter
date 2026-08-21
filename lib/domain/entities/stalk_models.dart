@@ -1,7 +1,6 @@
 import 'package:intl/intl.dart';
 
 enum StalkPlatform {
-  freefire,
   tiktok,
   instagram,
   twitter,
@@ -9,128 +8,6 @@ enum StalkPlatform {
   youtube,
   github,
   roblox,
-}
-
-// 1. FREE FIRE
-class FreeFireProfile {
-  final String accountId;
-  final String nickname;
-  final String region;
-  final String regionName;
-  final int level;
-  final int exp;
-  final int liked;
-  final int rank;
-  final int rankingPoints;
-  final int csRank;
-  final int csRankingPoints;
-  final int primeLevel;
-  final String creditScore;
-  final String createAt;
-  final String lastLoginAt;
-  final String clanName;
-  final int clanLevel;
-  final int clanMemberNum;
-  final int clanCapacity;
-  final String petName;
-  final int petLevel;
-  final String signature;
-
-  const FreeFireProfile({
-    required this.accountId,
-    required this.nickname,
-    required this.region,
-    required this.regionName,
-    required this.level,
-    required this.exp,
-    required this.liked,
-    required this.rank,
-    required this.rankingPoints,
-    required this.csRank,
-    required this.csRankingPoints,
-    required this.primeLevel,
-    required this.creditScore,
-    required this.createAt,
-    required this.lastLoginAt,
-    required this.clanName,
-    required this.clanLevel,
-    required this.clanMemberNum,
-    required this.clanCapacity,
-    required this.petName,
-    required this.petLevel,
-    required this.signature,
-  });
-
-  static const Map<String, String> regionMap = {
-    'ID': 'Indonesia',
-    'IND': 'India',
-    'BD': 'Bangladesh',
-    'PK': 'Pakistan',
-    'SG': 'Singapore',
-    'TH': 'Thailand',
-    'VN': 'Vietnam',
-    'TW': 'Taiwan',
-    'BR': 'Brazil',
-    'NA': 'North America',
-    'EU': 'Europe',
-    'ME': 'Middle East',
-    'RU': 'Russia',
-  };
-
-  static String formatUnixTimestamp(dynamic timestamp) {
-    if (timestamp == null) return '—';
-    try {
-      final ts = int.tryParse(timestamp.toString());
-      if (ts == null || ts == 0) return '—';
-      final dt = DateTime.fromMillisecondsSinceEpoch(ts * 1000);
-      return DateFormat('d MMMM yyyy, HH:mm', 'id_ID').format(dt);
-    } catch (_) {
-      try {
-        final ts = int.parse(timestamp.toString());
-        final dt = DateTime.fromMillisecondsSinceEpoch(ts * 1000);
-        return '${dt.day}/${dt.month}/${dt.year} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
-      } catch (_) {
-        return timestamp.toString();
-      }
-    }
-  }
-
-  factory FreeFireProfile.fromJson(Map<String, dynamic> json) {
-    final basic = (json['basicInfo'] as Map<String, dynamic>?) ?? {};
-    final clan = (json['clanBasicInfo'] as Map<String, dynamic>?) ?? {};
-    final pet = (json['petInfo'] as Map<String, dynamic>?) ?? {};
-    final social = (json['socialInfo'] as Map<String, dynamic>?) ?? {};
-    final credit = (json['creditScoreInfo'] as Map<String, dynamic>?) ?? {};
-    final prime = (basic['primeInfo'] as Map<String, dynamic>?) ?? {};
-
-    final rawRegion = (basic['region'] ?? 'Unknown').toString();
-    final regionName = regionMap[rawRegion] ?? rawRegion;
-
-    return FreeFireProfile(
-      accountId: (basic['accountId'] ?? '').toString(),
-      nickname: (basic['nickname'] ?? 'Player FF').toString(),
-      region: rawRegion,
-      regionName: regionName,
-      level: int.tryParse(basic['level']?.toString() ?? '0') ?? 0,
-      exp: int.tryParse(basic['exp']?.toString() ?? '0') ?? 0,
-      liked: int.tryParse(basic['liked']?.toString() ?? '0') ?? 0,
-      rank: int.tryParse(basic['rank']?.toString() ?? '0') ?? 0,
-      rankingPoints: int.tryParse(basic['rankingPoints']?.toString() ?? '0') ?? 0,
-      csRank: int.tryParse(basic['csRank']?.toString() ?? '0') ?? 0,
-      csRankingPoints: int.tryParse(basic['csRankingPoints']?.toString() ?? '0') ?? 0,
-      primeLevel: int.tryParse(prime['primeLevel']?.toString() ?? '0') ?? 0,
-      creditScore: (credit['creditScore'] ?? '100').toString(),
-      createAt: formatUnixTimestamp(basic['createAt']),
-      lastLoginAt: formatUnixTimestamp(basic['lastLoginAt']),
-      clanName: (clan['clanName'] ?? '').toString(),
-      clanLevel: int.tryParse(clan['clanLevel']?.toString() ?? '0') ?? 0,
-      clanMemberNum: int.tryParse(clan['memberNum']?.toString() ?? '0') ?? 0,
-      clanCapacity: int.tryParse(clan['capacity']?.toString() ?? '0') ?? 0,
-      petName: (pet['name'] ?? '').toString(),
-      petLevel: int.tryParse(pet['level']?.toString() ?? '0') ?? 0,
-      signature: (social['signature'] ?? '').toString(),
-    );
-  }
 }
 
 // 2. TIKTOK

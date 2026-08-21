@@ -17,9 +17,12 @@ class StalkerPage extends StatefulWidget {
   State<StalkerPage> createState() => _StalkerPageState();
 }
 
-class _StalkerPageState extends State<StalkerPage> {
+class _StalkerPageState extends State<StalkerPage> with AutomaticKeepAliveClientMixin {
   final TextEditingController _inputController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void dispose() {
@@ -54,12 +57,12 @@ class _StalkerPageState extends State<StalkerPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final stalker = context.watch<StalkerProvider>();
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 360;
 
-    final hasResult = stalker.freeFireResult != null ||
-        stalker.tikTokResult != null ||
+    final hasResult = stalker.tikTokResult != null ||
         stalker.twitterResult != null ||
         stalker.threadsResult != null ||
         stalker.instagramResult != null ||
@@ -140,7 +143,7 @@ class _StalkerPageState extends State<StalkerPage> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Cek detail akun game, media sosial, dan profil publik secara instan tanpa login.',
+                    'Cek detail akun media sosial dan profil publik secara instan tanpa login.',
                     style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
                   ),
                 ],
@@ -148,7 +151,7 @@ class _StalkerPageState extends State<StalkerPage> {
             ),
             const SizedBox(height: 18),
 
-            // 2. Platform Selector (8 Platforms)
+            // 2. Platform Selector (7 Platforms)
             const Text(
               'Pilih Platform Target',
               style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
@@ -159,19 +162,6 @@ class _StalkerPageState extends State<StalkerPage> {
               physics: const BouncingScrollPhysics(),
               child: Row(
                 children: [
-                  _buildPlatformCard(
-                    platform: StalkPlatform.freefire,
-                    title: 'Free Fire',
-                    subtitle: 'UID Akun',
-                    icon: Icons.local_fire_department_rounded,
-                    accentColor: const Color(0xFFFF5722),
-                    isSelected: stalker.currentPlatform == StalkPlatform.freefire,
-                    onTap: () {
-                      _inputController.clear();
-                      stalker.setPlatform(StalkPlatform.freefire);
-                    },
-                  ),
-                  const SizedBox(width: 10),
                   _buildPlatformCard(
                     platform: StalkPlatform.tiktok,
                     title: 'TikTok',
@@ -289,10 +279,7 @@ class _StalkerPageState extends State<StalkerPage> {
                       controller: _inputController,
                       focusNode: _focusNode,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
-                      // Keyboard Type disesuaikan: Angka HANYA untuk Free Fire, lainnya Teks huruf biasa!
-                      keyboardType: stalker.currentPlatform == StalkPlatform.freefire
-                          ? TextInputType.number
-                          : TextInputType.text,
+                      keyboardType: TextInputType.text,
                       textInputAction: TextInputAction.search,
                       onSubmitted: (_) => _handleSearch(),
                       decoration: InputDecoration(
@@ -326,90 +313,107 @@ class _StalkerPageState extends State<StalkerPage> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: stalker.isLoading ? null : _handleSearch,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         elevation: 0,
                       ),
+                      onPressed: stalker.isLoading ? null : _handleSearch,
                       child: stalker.isLoading
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.radar_rounded, color: Colors.black, size: 18),
+                                Icon(Icons.radar_rounded, size: 18),
                                 SizedBox(width: 8),
                                 Text(
-                                  'Mulai Lacak Profil',
-                                  style: TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.bold),
+                                  'Lacak Profil Sekarang',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
                     ),
                   ),
-
-                  // Quick Recents
-                  if (stalker.recentSearches.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 4),
-                          child: Text('Cepat:', style: TextStyle(color: AppColors.textDisabled, fontSize: 11)),
-                        ),
-                        for (final q in stalker.recentSearches)
-                          InkWell(
-                            onTap: () {
-                              _inputController.text = q;
-                              _handleSearch();
-                            },
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.06),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                q,
-                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // 4. Error State
+            // 4. Recent Searches Section
+            if (stalker.recentSearches.isNotEmpty && !stalker.isLoading && !hasResult) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Pencarian Populer / Tersimpan',
+                    style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    '${stalker.recentSearches.length} target',
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: stalker.recentSearches.map((item) {
+                  return InkWell(
+                    onTap: () {
+                      _inputController.text = item;
+                      _handleSearch();
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF16161C),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.history_rounded, color: AppColors.textMuted, size: 14),
+                          const SizedBox(width: 6),
+                          Text(
+                            item,
+                            style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 18),
+            ],
+
+            // Error Message
             if (stalker.errorMessage != null)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.12),
+                  color: Colors.red.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
+                    const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         stalker.errorMessage!,
-                        style: const TextStyle(color: Colors.white, fontSize: 12.5),
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 13),
                       ),
                     ),
                   ],
@@ -417,14 +421,12 @@ class _StalkerPageState extends State<StalkerPage> {
               ),
 
             // 5. Results
-            if (stalker.freeFireResult != null) _buildFreeFireCard(stalker.freeFireResult!),
             if (stalker.tikTokResult != null) _buildTikTokCard(stalker.tikTokResult!),
             if (stalker.instagramResult != null) _buildInstagramCard(stalker.instagramResult!),
             if (stalker.twitterResult != null) _buildTwitterCard(stalker.twitterResult!),
             if (stalker.threadsResult != null) _buildThreadsCard(stalker.threadsResult!),
             if (stalker.youTubeResult != null) _buildYouTubeCard(stalker.youTubeResult!),
             if (stalker.gitHubResult != null) _buildGitHubCard(stalker.gitHubResult!),
-            if (stalker.robloxResult != null) _buildRobloxCard(stalker.robloxResult!),
           ],
         ),
       ),
@@ -433,8 +435,6 @@ class _StalkerPageState extends State<StalkerPage> {
 
   String _getInputLabel(StalkPlatform platform) {
     switch (platform) {
-      case StalkPlatform.freefire:
-        return 'UID Pemain Free Fire';
       case StalkPlatform.tiktok:
         return 'Username Akun TikTok';
       case StalkPlatform.instagram:
@@ -454,8 +454,6 @@ class _StalkerPageState extends State<StalkerPage> {
 
   String _getInputHint(StalkPlatform platform) {
     switch (platform) {
-      case StalkPlatform.freefire:
-        return 'Contoh: 123456789 atau 298374194';
       case StalkPlatform.tiktok:
         return 'Contoh: mrbeast atau tiktok';
       case StalkPlatform.instagram:
@@ -536,164 +534,6 @@ class _StalkerPageState extends State<StalkerPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // =========================================================================
-  // 1. FREE FIRE CARD
-  // =========================================================================
-  Widget _buildFreeFireCard(FreeFireProfile data) {
-    return GlassCard(
-      padding: const EdgeInsets.all(18),
-      borderRadius: 22,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF5722).withOpacity(0.15),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFFF5722).withOpacity(0.3)),
-                ),
-                child: const Icon(Icons.local_fire_department_rounded, color: Color(0xFFFF5722), size: 28),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      data.nickname,
-                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Text('UID: ${data.accountId}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                        const SizedBox(width: 4),
-                        InkWell(
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: data.accountId));
-                            CustomToast.showSuccess(context, 'UID disalin!');
-                          },
-                          child: const Icon(Icons.copy_rounded, color: AppColors.primary, size: 14),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white10,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${data.regionName} (${data.region})',
-                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Divider(color: Colors.white12, height: 1),
-          const SizedBox(height: 14),
-
-          Row(
-            children: [
-              Expanded(child: _buildMetricTile('Level', '${data.level}', 'EXP: ${Formatters.formatCompactNumber(data.exp)}', Icons.star_rounded, const Color(0xFFFBBF24))),
-              const SizedBox(width: 10),
-              Expanded(child: _buildMetricTile('Likes', Formatters.formatCompactNumber(data.liked), 'Disukai', Icons.thumb_up_rounded, const Color(0xFF38BDF8))),
-              const SizedBox(width: 10),
-              Expanded(child: _buildMetricTile('Credit', data.creditScore, 'Skor Kredit', Icons.shield_rounded, const Color(0xFF34D399))),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: _buildMetricTile('BR Rank', '${data.rank}', '${data.rankingPoints} Pts', Icons.emoji_events_rounded, const Color(0xFFA78BFA))),
-              const SizedBox(width: 10),
-              Expanded(child: _buildMetricTile('CS Rank', '${data.csRank}', '${data.csRankingPoints} Pts', Icons.sports_martial_arts_rounded, const Color(0xFFF472B6))),
-              const SizedBox(width: 10),
-              Expanded(child: _buildMetricTile('Prime Lvl', '${data.primeLevel}', 'Status Prime', Icons.workspace_premium_rounded, const Color(0xFFF87171))),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          if (data.clanName.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.04),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.castle_rounded, color: Color(0xFFFBBF24), size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${data.clanName} (Lvl ${data.clanLevel})',
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        Text(
-                          'Anggota: ${data.clanMemberNum} / ${data.clanCapacity}',
-                          style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          if (data.signature.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                data.signature,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontStyle: FontStyle.italic),
-              ),
-            ),
-          const SizedBox(height: 14),
-
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.share_rounded, size: 16),
-              label: const Text('Bagikan Laporan Free Fire'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white24),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () {
-                _shareReport(
-                  'LAPORAN AKUN FREE FIRE',
-                  'Nickname: ${data.nickname}\nUID: ${data.accountId}\nRegion: ${data.regionName}\nLevel: ${data.level} (EXP: ${data.exp})\nLikes: ${data.liked}\nBR Rank: ${data.rank} (${data.rankingPoints} Pts)\nCS Rank: ${data.csRank} (${data.csRankingPoints} Pts)\nGuild: ${data.clanName.isNotEmpty ? data.clanName : "Solo"}\nBio: ${data.signature}',
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }
