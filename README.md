@@ -1,29 +1,80 @@
-# 🚀 TikTok Downloader Pro (Flutter Mobile App)
+# 🚀 MyDownloader Pro - Ultimate Media Downloader & Stalker Hub
 
-A modern, production-grade TikTok Downloader application built with **Flutter**, **Clean Architecture**, and a sleek **Dark Futuristic Glassmorphism UI**.
-
----
-
-## ✨ Features
-
-- 💎 **Dark Futuristic Glassmorphic UI**: Frosted surfaces with `BackdropFilter`, glowing neon accents, and smooth animations.
-- ⚡ **Real TikTok API Integration**: Fetches video metadata, dynamic covers, author details, HD watermark-free video streams, and MP3 audio streams.
-- 🎬 **In-App Video Preview Player**: Custom player controls (play/pause, timeline seeker, audio mute/unmute, and fullscreen).
-- 📥 **Streaming Download Engine**: High-speed chunked streaming with `Dio`, real-time speed calculation, cancellation support, and auto-cleanup.
-- 🖼️ **Gallery & Scoped Storage Integration**: Automatically registers MP4 videos to the device's Gallery / Photos album.
-- 🎵 **Audio Extraction**: Clean MP3 download option for original sound.
-- 📜 **Persistent History & Search**: Offline storage for downloads, filterable by Video/Audio, with instant in-app playback and system share sheet.
-- 📋 **Smart Clipboard Integration**: Auto-detects and extracts valid TikTok URLs from dirty text.
-- ⚙️ **Comprehensive Settings**: Storage space analyzer, auto-save preference, and download cache cleaner.
+Aplikasi mobile berbasis **Flutter** dengan arsitektur **Clean Architecture** dan antarmuka **Dark Futuristic Glassmorphism UI** untuk mengunduh media dari berbagai platform sosial dan melacak profil publik secara instan.
 
 ---
 
-## 🛠️ Tech Stack & Architecture
+## 🌟 Fitur Utama
 
-- **Framework**: Flutter 3.24+ / Dart
-- **Architecture**: Clean Architecture (Presentation, Domain, Data, Services)
-- **State Management**: Provider
-- **Networking & Download**: Dio (Streaming + CancelToken)
-- **Media**: `video_player`, `cached_network_image`, `gal` (Gallery saving), `open_filex`, `share_plus`
-- **Storage**: `shared_preferences`, `path_provider`
-- **CI/CD**: GitHub Actions for automated Android APK builds.
+### 📥 1. Multi-Platform Media Downloader
+- **TikTok & Douyin (抖音)**: Unduh video tanpa watermark (No Watermark HD), Story, Slide Foto (Carousel), dan audio MP3 original bitrate.
+- **Instagram**: Unduh Reels, Feed Video, Carousel Foto, dan IGTV.
+- **Facebook**: Unduh video publik resolusi SD & HD.
+- **Twitter / X**: Unduh video HD & GIF dari tweet.
+- **YouTube**: Unduh video dan audio YouTube.
+- **Threads**: Unduh video & media dari postingan Threads Meta.
+- **CapCut**: Unduh template & video CapCut tanpa watermark.
+- **Spotify, SoundCloud & Apple Music**: Ekstraksi dan unduh streaming musik audio MP3 kualitas jernih.
+- **TeraBox**: Ekstraksi tautan unduhan langsung tanpa limit.
+- **Pinterest, SnackVideo, Kuaishou**: Unduh video & gambar publik tanpa watermark.
+
+### 🕵️‍♂️ 2. OSINT Stalker Hub (Pelacak Profil)
+- **TikTok**: Cek Followers, Following, Total Likes, Bio, dan Foto Profil HD (720p).
+- **Instagram**: Cek Total Postingan, Followers, Following, Bio, dan Foto Profil HD.
+- **Twitter / X**: Cek Total Tweets, Followers, Following, Likes, Tanggal Pembuatan Akun, dan Bio.
+- **Threads**: Cek Bio, Followers, Status Verifikasi, dan Avatar HD.
+- **YouTube**: Cek Subscribers, Total Video, Channel Name & Preview.
+- **GitHub**: Cek Repositori Publik, Followers, Following, Bio, dan Profil Developer.
+- **Roblox**: Cek Avatar 3D, Display Name, Username, dan Status Pemain.
+
+### ⚡ 3. Pengalaman Pengguna (UI/UX)
+- **🔄 Gesture Swipe Navigation**: Geser layar ke kiri atau kanan untuk berpindah halaman dengan animasi mulus (*Bouncing Physics*).
+- **💎 Dark Glassmorphism**: Permukaan *frosted glass* modern dengan efek `BackdropFilter` dan aksen neon dinamis.
+- **🚀 Quick Share**: Mendukung menu "Bagikan ke MyDownloader" bawaan HP untuk mengunduh otomatis tanpa salin-tempel manual.
+- **🎬 In-App Video & Audio Player**: Putar video langsung di dalam aplikasi sebelum atau sesudah mengunduh.
+- **📜 Riwayat Offline**: Database lokal untuk mengelola, memutar, atau membagikan kembali media yang telah diunduh.
+
+---
+
+## 📂 Struktur Proyek (Clean Architecture)
+
+```
+lib/
+├── core/                   # Utilitas global, tema, konstanta, dan network client
+│   ├── constants/          # AppColors, ApiConstants
+│   ├── errors/             # Custom Exceptions & Error Handler
+│   ├── network/            # Dio API Client & Interceptors
+│   ├── theme/              # Glassmorphism Dark Theme
+│   └── utils/              # Formatters, UrlValidator
+├── data/                   # Implementasi data, remote API, dan local storage
+│   ├── datasources/        # TikTok/Media Scraper & Stalker Data Sources
+│   ├── models/             # Data Transfer Objects (DTO) & JSON Parsers
+│   └── repositories/       # Implementasi Repository Domain
+├── domain/                 # Entitas bisnis, interface repository, dan UseCases
+│   ├── entities/           # Media & Stalker Data Models
+│   ├── repositories/       # Abstract Repository Contracts
+│   └── usecases/           # Business Logic UseCases
+├── presentation/           # Antarmuka Pengguna (UI) & State Management
+│   ├── pages/              # MainNavigation, Home, Stalker, Downloads, History, Settings
+│   ├── providers/          # ChangeNotifier State Providers
+│   └── widgets/            # GlassCard, GlassTextField, ShimmerLoader, VideoPlayer
+└── services/               # Layanan OS: Storage, Clipboard, QuickShare, Settings
+```
+
+---
+
+## 🛠️ Panduan Build APK
+
+Untuk panduan lengkap langkah demi langkah cara mengompilasi APK release, silakan baca file [PANDUAN_STRUKTUR_DAN_BUILD.md](PANDUAN_STRUKTUR_DAN_BUILD.md).
+
+```bash
+# 1. Install dependencies
+flutter pub get
+
+# 2. Jalankan di perangkat
+flutter run
+
+# 3. Build APK Release
+flutter build apk --release
+```
+
